@@ -2,152 +2,212 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Baby Heartbeat Detector Pro</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#fff;overflow-x:hidden}
-    .container{max-width:720px;margin:0 auto;padding:20px}
-    .app-header{text-align:center;margin-bottom:30px}
-    .title{font-size:2.2rem;margin-bottom:8px;background:linear-gradient(45deg,#ff6b6b,#feca57);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-    .subtitle{font-size:1rem;opacity:.85}
-    .nav-tabs{display:flex;background:rgba(255,255,255,.1);border-radius:14px;margin:22px 0;overflow:hidden}
-    .nav-tab{flex:1;padding:12px;text-align:center;background:transparent;border:none;color:#fff;cursor:pointer;transition:all .2s ease;font-size:1rem}
-    .nav-tab.active{background:linear-gradient(45deg,#ff6b6b,#feca57);font-weight:700}
-    .tab-content{display:none;background:rgba(255,255,255,.1);backdrop-filter:blur(20px);border-radius:18px;padding:22px;box-shadow:0 18px 38px rgba(0,0,0,.22)}
-    .tab-content.active{display:block}
-    .mic-selector{margin-bottom:14px}
-    .mic-selector select{width:100%;padding:12px;border-radius:10px;border:none;background:rgba(255,255,255,.2);color:#fff}
-    .warning{background:rgba(255,107,107,.18);border:1px solid #ff6b6b;border-radius:10px;padding:10px 12px;margin:8px 0}
-    button{background:linear-gradient(45deg,#ff6b6b,#feca57);border:none;color:#fff;padding:11px 18px;font-size:1rem;border-radius:40px;cursor:pointer;margin:6px;transition:all .2s ease;font-weight:700}
-    button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 20px rgba(0,0,0,.28)}
-    button:disabled{opacity:.55;cursor:not-allowed;transform:none}
-    .btn-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;margin:10px 0}
-    .controls-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
-    .slider-container{background:rgba(255,255,255,.14);padding:12px;border-radius:10px;text-align:center}
-    .slider-container label{display:block;margin-bottom:5px;font-size:.9rem;font-weight:700}
-    input[type=range]{width:100%;margin:8px 0}
-    .status{font-size:1rem;margin:12px 0;padding:12px;border-radius:10px;background:rgba(255,255,255,.12);text-align:center}
-    .visualization{width:100%;height:150px;background:rgba(255,255,255,.1);border-radius:14px;margin:14px 0;position:relative;overflow:hidden}
-    .waveform{position:absolute;top:50%;left:0;width:100%;height:2px;background:#ff6b6b;transform:translateY(-50%);}
-    .pulse{position:absolute;top:50%;left:50%;width:18px;height:18px;background:#feca57;border-radius:50%;transform:translate(-50%,-50%);opacity:0}
-    .bpm-display{font-size:1.8rem;font-weight:800;color:#feca57;margin:10px 0;text-align:center}
-    .heartbeat-indicator{display:inline-block;color:#ff6b6b;font-size:1.4rem}
-    .audio-playback{margin-top:10px;text-align:center}
-    .audio-playback a{color:#fff;text-decoration:underline}
-    .instructions h3{margin:.4rem 0}
-    .small{opacity:.95;font-size:.92rem}
+  :root{
+    --bg:linear-gradient(135deg,#faf5ff,#fff7ed); /* purple + orange background */
+    --card:#ffffff;
+    --text:#1e1b4b;
+    --muted:#6b7280;
+    --accent-purple:#7c3aed;
+    --accent-orange:#fb923c;
+    --accent-hover:#ea580c;
+    --accent-light:#fbbf24;
+    --danger:#dc2626;
+    --line:#fcd9bd;
+    --radius:16px;
+    --space:20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;min-height:100vh;}
+
+  .wrap{max-width:1100px;margin:0 auto;padding:var(--space)}
+  .app{display:flex;flex-direction:column;gap:var(--space);min-height:100vh}
+
+  header{padding-bottom:var(--space);border-bottom:2px solid var(--line);text-align:center}
+  .title{font-size:2.2rem;font-weight:800;background:linear-gradient(90deg,var(--accent-purple),var(--accent-orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .subtitle{margin-top:6px;font-size:1rem;color:var(--muted)}
+
+  nav{position:sticky;top:0;padding:10px 0;border-bottom:1px solid var(--line);background:rgba(255,255,255,0.8);backdrop-filter:blur(12px);z-index:50}
+  .tabbar{display:flex;gap:10px;justify-content:center}
+  .tab{flex:1;max-width:220px;padding:14px 18px;border-radius:14px;border:none;background:#fff7ed;color:var(--text);cursor:pointer;font-weight:700;text-align:center;font-size:1rem;transition:all .25s;box-shadow:inset 0 0 0 2px var(--line)}
+  .tab.active{background:linear-gradient(135deg,var(--accent-purple),var(--accent-orange));color:#fff;box-shadow:0 4px 12px rgba(251,146,60,.4)}
+  .tab:hover:not(.active){box-shadow:0 2px 8px rgba(251,146,60,.3);color:var(--accent-orange)}
+
+  main{flex:1;display:flex;flex-direction:column;gap:var(--space)}
+  section{padding:var(--space);border:1px solid var(--line);border-radius:var(--radius);background:rgba(255,255,255,0.9);backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,0.05)}
+
+  /* Call-to-action area */
+  .top-cta{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+  button{flex:1 1 auto;min-width:150px;padding:16px 22px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent-purple),var(--accent-orange));color:#fff;font-weight:700;font-size:1.05rem;cursor:pointer;transition:transform .2s,box-shadow .2s;text-align:center;box-shadow:0 4px 10px rgba(0,0,0,0.15)}
+  button:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 16px rgba(251,146,60,.4);background:linear-gradient(135deg,var(--accent-hover),var(--accent-purple))}
+  button:disabled{opacity:.6;cursor:not-allowed;background:#e5e7eb;color:#6b7280;box-shadow:none}
+
+  /* Controls */
+  .pane{display:flex;flex-direction:column;gap:var(--space)}
+  .group{display:flex;flex-direction:column;gap:8px;padding:var(--space);border:1px solid var(--line);border-radius:var(--radius);background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.05)}
+  .group h3{margin:0;color:var(--accent-orange)}
+
+  .status{text-align:center;font-size:.95rem;color:var(--muted);padding:12px;border:1px dashed var(--line);border-radius:var(--radius)}
+
+  /* Visualization */
+  .viz{height:280px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,#faf5ff,#fff7ed);position:relative;overflow:hidden;box-shadow:inset 0 2px 8px rgba(0,0,0,0.05)}
+  .waveform{position:absolute;left:0;top:50%;width:100%;height:2px;background:var(--danger);transform:translateY(-50%)}
+  .pulse{position:absolute;left:50%;top:50%;width:18px;height:18px;background:linear-gradient(135deg,var(--accent-purple),var(--accent-orange));border-radius:50%;transform:translate(-50%,-50%);opacity:0}
+  .bpm{text-align:center;font-weight:800;color:var(--accent-orange);margin-top:14px;font-size:1.4rem;letter-spacing:.5px}
+  .hint{text-align:center;font-size:.9rem;color:var(--muted)}
+
+  .audio{display:flex;flex-direction:column;align-items:center;gap:8px}
+
+  .scrollable{max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:var(--space)}
+  .warning{border:2px solid var(--danger);border-radius:var(--radius);padding:var(--space);background:#fef2f2;color:var(--danger);box-shadow:0 2px 6px rgba(0,0,0,0.05)}
+
+  /* Layout improvements */
+  @media (max-width:599px){
+    .grid-detector{display:flex;flex-direction:column;gap:var(--space)}
+    button{flex:1 1 100%}
+  }
+  @media (min-width:600px) and (max-width:1023px){
+    .grid-detector{display:grid;grid-template-columns:1fr 1fr;gap:var(--space)}
+    .area-cta{grid-column:span 2}
+    .area-audio{grid-column:span 2}
+  }
+  @media (min-width:1024px){
+    .grid-detector{display:grid;grid-template-columns:1fr 1.5fr;gap:var(--space)}
+    .area-cta{grid-column:span 2}
+    .area-audio{grid-column:span 2}
+  }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="app-header">
-      <h1 class="title">💗 Baby Heartbeat Detector Pro</h1>
-      <p class="subtitle">Live monitor + record the band-passed, compressed mic signal</p>
-    </div>
+  <div class="app wrap">
+    <header>
+      <div class="title">Baby Heartbeat Detector Pro</div>
+      <div class="subtitle">Monitor, visualize & record your baby's heartbeat safely</div>
+    </header>
 
-    <div class="nav-tabs">
-      <button class="nav-tab active" data-tab="detector">Detector</button>
-      <button class="nav-tab" data-tab="instructions">Instructions</button>
-      <button class="nav-tab" data-tab="positioning">Positioning</button>
-    </div>
-
-    <div id="detector-tab" class="tab-content active">
-      <div class="mic-selector">
-        <label for="micType" style="display:block;margin-bottom:8px;font-weight:700">Select Your Microphone:</label>
-        <select id="micType">
-          <option value="smartphone">Smartphone Built-in Mic</option>
-          <option value="dji-mic-mini" selected>DJI Mic Mini</option>
-          <option value="professional">Professional External Mic</option>
-          <option value="stethoscope">Electronic Stethoscope</option>
-          <option value="custom">Custom Settings</option>
-        </select>
+    <nav>
+      <div class="tabbar">
+        <button class="tab active" data-tab="detector">Detector</button>
+        <button class="tab" data-tab="instructions">Instructions</button>
+        <button class="tab" data-tab="positioning">Positioning</button>
       </div>
+    </nav>
 
-      <div class="warning small">Use <strong>headphones</strong> for monitoring to prevent feedback.</div>
+    <main>
+      <section id="detector-tab" class="tab-content active">
+        <div class="grid-detector">
+          <!-- Call-to-action toolbar -->
+          <div class="area-cta">
+            <div class="top-cta">
+              <button id="startBtn">Start Listening</button>
+              <button id="stopBtn" disabled>Stop</button>
+              <button id="monitorBtn" disabled>Monitor: Off</button>
+              <button id="playEnhancedBtn" disabled>Play Enhanced</button>
+              <button id="recBtn" disabled>Start Recording</button>
+            </div>
+          </div>
 
-      <div class="btn-row">
-        <button id="startBtn">Start Listening</button>
-        <button id="stopBtn" disabled>Stop</button>
-        <button id="monitorBtn" disabled>Monitor: Off</button>
-        <button id="playEnhancedBtn" disabled>Play Enhanced (short)</button>
-        <button id="recBtn" disabled>Start Recording</button>
-      </div>
+          <!-- Controls panel -->
+          <div class="area-controls">
+            <div class="pane">
+              <div class="group">
+                <h3>Microphone</h3>
+                <select id="micType" class="select">
+                  <option value="smartphone">Smartphone Built-in Mic</option>
+                  <option value="dji-mic-mini" selected>DJI Mic Mini</option>
+                  <option value="professional">Professional External Mic</option>
+                  <option value="stethoscope">Electronic Stethoscope</option>
+                  <option value="custom">Custom Settings</option>
+                </select>
+                <div class="warning small">Use <strong>headphones</strong> for monitoring to prevent feedback.</div>
+              </div>
 
-      <div class="controls-grid">
-        <div class="slider-container">
-          <label>Sensitivity</label>
-          <input type="range" id="sensitivity" min="1" max="10" value="7"/>
-          <span id="sensitivityValue">7</span>
+              <div class="group">
+                <label for="sensitivity">Sensitivity</label>
+                <input type="range" id="sensitivity" min="1" max="10" value="7"/>
+                <div class="value">Current: <span id="sensitivityValue">7</span></div>
+              </div>
+
+              <div class="group">
+                <label for="filterFreq">Filter Frequency (Hz)</label>
+                <input type="range" id="filterFreq" min="10" max="400" value="60"/>
+                <div class="value">Current: <span id="filterValue">60 Hz</span></div>
+              </div>
+
+              <div class="group">
+                <label for="monitorVol">Monitor Volume (%)</label>
+                <input type="range" id="monitorVol" min="0" max="100" value="30"/>
+                <div class="value">Current: <span id="monitorVolValue">30%</span></div>
+              </div>
+
+              <div id="status" class="status">Select microphone type and click “Start Listening”.</div>
+            </div>
+          </div>
+
+          <!-- Visualization panel -->
+          <div class="area-viz">
+            <div class="pane">
+              <div class="viz" id="visualization">
+                <div class="waveform" id="waveform"></div>
+                <div class="pulse" id="pulse"></div>
+              </div>
+              <div class="bpm"><span id="bpm">-- BPM</span></div>
+              <div class="hint">Tip: Adjust sensitivity and filter to reduce background noise.</div>
+            </div>
+          </div>
+
+          <!-- Audio playback -->
+          <div class="area-audio">
+            <div class="audio" id="playbackArea" style="display:none;">
+              <audio id="playbackAudio" controls></audio>
+              <a id="downloadLink" href="#" download="heartbeat.webm">Download recording</a>
+            </div>
+          </div>
         </div>
-        <div class="slider-container">
-          <label>Filter Frequency</label>
-          <input type="range" id="filterFreq" min="10" max="400" value="60"/>
-          <span id="filterValue">60 Hz</span>
+      </section>
+
+      <section id="instructions-tab" class="tab-content">
+        <div class="scrollable">
+          <div class="warning">
+            <h4>Important Medical Disclaimer</h4>
+            <p class="small">This app is for educational purposes only. It should NOT replace professional prenatal care or medical equipment. Always consult healthcare professionals for proper fetal monitoring.</p>
+          </div>
+          <h3>Microphone Setup Guide</h3>
+          <ul>
+            <li>Always <strong>use headphones</strong> for live monitoring to avoid feedback.</li>
+            <li>Keep filter around <strong>50–80 Hz</strong>, sensitivity <strong>6–9</strong>.</li>
+            <li>Place mic directly on skin; move slowly and gently.</li>
+          </ul>
+          <h3>Troubleshooting</h3>
+          <ul>
+            <li>No mic detected? Use HTTPS/localhost and allow permission.</li>
+            <li>Too much hiss? Lower Sensitivity or Monitor Volume.</li>
+            <li>Very high BPM (e.g. 180)? Likely noise/double-counting.</li>
+          </ul>
         </div>
-        <div class="slider-container">
-          <label>Monitor Volume</label>
-          <input type="range" id="monitorVol" min="0" max="100" value="30"/>
-          <span id="monitorVolValue">30%</span>
+      </section>
+
+      <section id="positioning-tab" class="tab-content">
+        <div class="scrollable">
+          <h3>Optimal Microphone Positioning</h3>
+          <p class="small">From ~18 weeks: start just below the belly button. Earlier: closer to the pubic bone. Sweep slowly and patiently.</p>
+          <div class="warning small">If you cannot detect a heartbeat or have concerns, contact your healthcare provider immediately.</div>
         </div>
-      </div>
-
-      <div class="status" id="status">Select microphone type and click "Start Listening"</div>
-      <div class="visualization" id="visualization">
-        <div class="waveform" id="waveform"></div>
-        <div class="pulse" id="pulse"></div>
-      </div>
-
-      <div class="bpm-display" id="bpmDisplay">
-        <span class="heartbeat-indicator" id="heartIcon">💗</span>
-        <span id="bpm">-- BPM</span>
-      </div>
-
-      <div class="audio-playback" id="playbackArea" style="display:none;">
-        <audio id="playbackAudio" controls></audio><br/>
-        <a id="downloadLink" href="#" download="heartbeat.webm">Download recording</a>
-      </div>
-    </div>
-
-    <div id="instructions-tab" class="tab-content">
-      <div class="instructions small">
-        <div class="warning">
-          <h4>⚠️ Important Medical Disclaimer</h4>
-          <p>This app is for educational purposes only. It should NOT replace professional prenatal care or medical equipment. Always consult healthcare professionals for proper fetal monitoring.</p>
-        </div>
-        <h3>🎧 Microphone Setup Guide</h3>
-        <ul>
-          <li><strong>Use headphones</strong> for live monitoring to avoid feedback.</li>
-          <li>Keep filter around <strong>50–80 Hz</strong>, sensitivity <strong>6–9</strong>.</li>
-          <li>Place mic directly on skin; move slowly and gently.</li>
-        </ul>
-        <h3>🔧 Troubleshooting</h3>
-        <ul>
-          <li>No mic? Use HTTPS/localhost and allow permission.</li>
-          <li>Too much hiss? Lower Sensitivity or Monitor Volume.</li>
-          <li>180 BPM spikes? Likely noise/double-counting; the detector smooths/filters it.</li>
-        </ul>
-      </div>
-    </div>
-
-    <div id="positioning-tab" class="tab-content">
-      <div class="instructions small">
-        <h3>📍 Optimal Microphone Positioning</h3>
-        <p>Start a little below the belly button around 18+ weeks; earlier on, move closer to the pubic bone. Sweep slowly.</p>
-        <div class="warning">For any concerns about fetal movement or if you cannot detect a heartbeat, contact your healthcare provider.</div>
-      </div>
-    </div>
+      </section>
+    </main>
   </div>
 
   <script>
-    // In production, set CORE_TOKEN in Vercel and set the token here server-side or via env injection
     window.__CORE_URL__ = "/api/core?token=DEV_TOKEN";
   </script>
-
   <script type="module">
-    document.querySelectorAll('.nav-tab').forEach(btn => {
+    document.querySelectorAll('.tab').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById(btn.dataset.tab + '-tab').classList.add('active');
