@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Baby Heartbeat Detector Pro</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#fff;overflow-x:hidden}
+    .container{max-width:720px;margin:0 auto;padding:20px}
+    .app-header{text-align:center;margin-bottom:30px}
+    .title{font-size:2.2rem;margin-bottom:8px;background:linear-gradient(45deg,#ff6b6b,#feca57);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .subtitle{font-size:1rem;opacity:.85}
+    .nav-tabs{display:flex;background:rgba(255,255,255,.1);border-radius:14px;margin:22px 0;overflow:hidden}
+    .nav-tab{flex:1;padding:12px;text-align:center;background:transparent;border:none;color:#fff;cursor:pointer;transition:all .2s ease;font-size:1rem}
+    .nav-tab.active{background:linear-gradient(45deg,#ff6b6b,#feca57);font-weight:700}
+    .tab-content{display:none;background:rgba(255,255,255,.1);backdrop-filter:blur(20px);border-radius:18px;padding:22px;box-shadow:0 18px 38px rgba(0,0,0,.22)}
+    .tab-content.active{display:block}
+    .mic-selector{margin-bottom:14px}
+    .mic-selector select{width:100%;padding:12px;border-radius:10px;border:none;background:rgba(255,255,255,.2);color:#fff}
+    .warning{background:rgba(255,107,107,.18);border:1px solid #ff6b6b;border-radius:10px;padding:10px 12px;margin:8px 0}
+    button{background:linear-gradient(45deg,#ff6b6b,#feca57);border:none;color:#fff;padding:11px 18px;font-size:1rem;border-radius:40px;cursor:pointer;margin:6px;transition:all .2s ease;font-weight:700}
+    button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 20px rgba(0,0,0,.28)}
+    button:disabled{opacity:.55;cursor:not-allowed;transform:none}
+    .btn-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;margin:10px 0}
+    .controls-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
+    .slider-container{background:rgba(255,255,255,.14);padding:12px;border-radius:10px;text-align:center}
+    .slider-container label{display:block;margin-bottom:5px;font-size:.9rem;font-weight:700}
+    input[type=range]{width:100%;margin:8px 0}
+    .status{font-size:1rem;margin:12px 0;padding:12px;border-radius:10px;background:rgba(255,255,255,.12);text-align:center}
+    .visualization{width:100%;height:150px;background:rgba(255,255,255,.1);border-radius:14px;margin:14px 0;position:relative;overflow:hidden}
+    .waveform{position:absolute;top:50%;left:0;width:100%;height:2px;background:#ff6b6b;transform:translateY(-50%);}
+    .pulse{position:absolute;top:50%;left:50%;width:18px;height:18px;background:#feca57;border-radius:50%;transform:translate(-50%,-50%);opacity:0}
+    .bpm-display{font-size:1.8rem;font-weight:800;color:#feca57;margin:10px 0;text-align:center}
+    .heartbeat-indicator{display:inline-block;color:#ff6b6b;font-size:1.4rem}
+    .audio-playback{margin-top:10px;text-align:center}
+    .audio-playback a{color:#fff;text-decoration:underline}
+    .instructions h3{margin:.4rem 0}
+    .small{opacity:.95;font-size:.92rem}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="app-header">
+      <h1 class="title">💗 Baby Heartbeat Detector Pro</h1>
+      <p class="subtitle">Live monitor + record the band-passed, compressed mic signal</p>
+    </div>
+
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-tab="detector">Detector</button>
+      <button class="nav-tab" data-tab="instructions">Instructions</button>
+      <button class="nav-tab" data-tab="positioning">Positioning</button>
+    </div>
+
+    <div id="detector-tab" class="tab-content active">
+      <div class="mic-selector">
+        <label for="micType" style="display:block;margin-bottom:8px;font-weight:700">Select Your Microphone:</label>
+        <select id="micType">
+          <option value="smartphone">Smartphone Built-in Mic</option>
+          <option value="dji-mic-mini" selected>DJI Mic Mini</option>
+          <option value="professional">Professional External Mic</option>
+          <option value="stethoscope">Electronic Stethoscope</option>
+          <option value="custom">Custom Settings</option>
+        </select>
+      </div>
+
+      <div class="warning small">Use <strong>headphones</strong> for monitoring to prevent feedback.</div>
+
+      <div class="btn-row">
+        <button id="startBtn">Start Listening</button>
+        <button id="stopBtn" disabled>Stop</button>
+        <button id="monitorBtn" disabled>Monitor: Off</button>
+        <button id="playEnhancedBtn" disabled>Play Enhanced (short)</button>
+        <button id="recBtn" disabled>Start Recording</button>
+      </div>
+
+      <div class="controls-grid">
+        <div class="slider-container">
+          <label>Sensitivity</label>
+          <input type="range" id="sensitivity" min="1" max="10" value="7"/>
+          <span id="sensitivityValue">7</span>
+        </div>
+        <div class="slider-container">
+          <label>Filter Frequency</label>
+          <input type="range" id="filterFreq" min="10" max="400" value="60"/>
+          <span id="filterValue">60 Hz</span>
+        </div>
+        <div class="slider-container">
+          <label>Monitor Volume</label>
+          <input type="range" id="monitorVol" min="0" max="100" value="30"/>
+          <span id="monitorVolValue">30%</span>
+        </div>
+      </div>
+
+      <div class="status" id="status">Select microphone type and click "Start Listening"</div>
+      <div class="visualization" id="visualization">
+        <div class="waveform" id="waveform"></div>
+        <div class="pulse" id="pulse"></div>
+      </div>
+
+      <div class="bpm-display" id="bpmDisplay">
+        <span class="heartbeat-indicator" id="heartIcon">💗</span>
+        <span id="bpm">-- BPM</span>
+      </div>
+
+      <div class="audio-playback" id="playbackArea" style="display:none;">
+        <audio id="playbackAudio" controls></audio><br/>
+        <a id="downloadLink" href="#" download="heartbeat.webm">Download recording</a>
+      </div>
+    </div>
+
+    <div id="instructions-tab" class="tab-content">
+      <div class="instructions small">
+        <div class="warning">
+          <h4>⚠️ Important Medical Disclaimer</h4>
+          <p>This app is for educational purposes only. It should NOT replace professional prenatal care or medical equipment. Always consult healthcare professionals for proper fetal monitoring.</p>
+        </div>
+        <h3>🎧 Microphone Setup Guide</h3>
+        <ul>
+          <li><strong>Use headphones</strong> for live monitoring to avoid feedback.</li>
+          <li>Keep filter around <strong>50–80 Hz</strong>, sensitivity <strong>6–9</strong>.</li>
+          <li>Place mic directly on skin; move slowly and gently.</li>
+        </ul>
+        <h3>🔧 Troubleshooting</h3>
+        <ul>
+          <li>No mic? Use HTTPS/localhost and allow permission.</li>
+          <li>Too much hiss? Lower Sensitivity or Monitor Volume.</li>
+          <li>180 BPM spikes? Likely noise/double-counting; the detector smooths/filters it.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="positioning-tab" class="tab-content">
+      <div class="instructions small">
+        <h3>📍 Optimal Microphone Positioning</h3>
+        <p>Start a little below the belly button around 18+ weeks; earlier on, move closer to the pubic bone. Sweep slowly.</p>
+        <div class="warning">For any concerns about fetal movement or if you cannot detect a heartbeat, contact your healthcare provider.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // In production, set CORE_TOKEN in Vercel and set the token here server-side or via env injection
+    window.__CORE_URL__ = "/api/core?token=DEV_TOKEN";
+  </script>
+
+  <script type="module">
+    document.querySelectorAll('.nav-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab + '-tab').classList.add('active');
+      });
+    });
+
+    (async () => {
+      try {
+        const { initBabyBeat } = await import(window.__CORE_URL__ || './babybeat-core.js');
+        window.babyBeat = await initBabyBeat({
+          elements: {
+            micType: '#micType',
+            start: '#startBtn',
+            stop: '#stopBtn',
+            monitor: '#monitorBtn',
+            playEnhanced: '#playEnhancedBtn',
+            record: '#recBtn',
+            status: '#status',
+            sensitivity: '#sensitivity',
+            sensitivityValue: '#sensitivityValue',
+            filterFreq: '#filterFreq',
+            filterValue: '#filterValue',
+            monitorVol: '#monitorVol',
+            monitorVolValue: '#monitorVolValue',
+            waveform: '#waveform',
+            pulse: '#pulse',
+            bpm: '#bpm',
+            playbackArea: '#playbackArea',
+            playbackAudio: '#playbackAudio',
+            downloadLink: '#downloadLink'
+          },
+          async licenseValidator () { return true; }
+        });
+      } catch (e) {
+        console.error('Failed to load core:', e);
+        document.getElementById('status').textContent = 'Failed to load core bundle.';
+      }
+    })();
+  </script>
+</body>
+</html>
