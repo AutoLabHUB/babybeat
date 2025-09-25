@@ -202,9 +202,11 @@
   </div>
 
   <script>
-    window.__CORE_URL__ = "/api/core?token=DEV_TOKEN";
+    // Prefer setting window.__CORE_URL__ globally from your server. We still provide robust fallbacks below.
+    window.__CORE_URL__ = window.__CORE_URL__ || "/api/core?token=DEV_TOKEN";
   </script>
   <script type="module">
+    // Lightweight tab logic
     document.querySelectorAll('.tab').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
@@ -214,10 +216,63 @@
       });
     });
 
+    // ---- Robust Core Loader ----
+    const statusEl = document.getElementById('status');
+    function setStatus(msg){ if(statusEl){ statusEl.textContent = msg; } }
+
+    async function tryDynamicImport(url){
+      try{
+        const mod = await import(url);
+        const init = mod.initBabyBeat || (mod.default && (mod.default.initBabyBeat || mod.default));
+        if(typeof init === 'function') return init;
+      }catch(e){
+        console.warn('[core] dynamic import failed for', url, e);
+      }
+      return null;
+    }
+
+    function tryGlobal(){
+      if(typeof window.initBabyBeat === 'function') return window.initBabyBeat;
+      if(window.babyBeatCore && typeof window.babyBeatCore.initBabyBeat === 'function') return window.babyBeatCore.initBabyBeat;
+      return null;
+    }
+
+    async function loadCore(){
+      const candidates = [
+        window.__CORE_URL__,
+        './babybeat-core.js',
+        '/babybeat-core.js',
+      ];
+      for(const url of candidates){
+        const init = await tryDynamicImport(url);
+        if(init) return { init, source: url };
+      }
+      // Attempt UMD fallback by injecting a script tag if globals might be exposed
+      const umdCandidates = [
+        './babybeat-core.umd.js',
+        '/babybeat-core.umd.js'
+      ];
+      for(const url of umdCandidates){
+        try{
+          await new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = url; s.async = true; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+          });
+          const init = tryGlobal();
+          if(init) return { init, source: url };
+        }catch(e){ console.warn('[core] UMD load failed for', url, e); }
+      }
+      const g = tryGlobal();
+      if(g) return { init: g, source: 'global' };
+      throw new Error('Could not load core bundle. Tried ESM and UMD fallbacks.');
+    }
+
     (async () => {
       try {
-        const { initBabyBeat } = await import(window.__CORE_URL__ || './babybeat-core.js');
-        window.babyBeat = await initBabyBeat({
+        setStatus('Loading audio engine…');
+        const { init, source } = await loadCore();
+        setStatus(`Initializing (source: ${source})…`);
+        window.babyBeat = await init({
           elements: {
             micType: '#micType',
             start: '#startBtn',
@@ -241,9 +296,10 @@
           },
           async licenseValidator () { return true; }
         });
+        setStatus('Ready. Select a microphone and press Start Listening.');
       } catch (e) {
-        console.error('Failed to load core:', e);
-        document.getElementById('status').textContent = 'Failed to load core bundle.';
+        console.error('[core] Failed to initialize:', e);
+        setStatus('Failed to load core bundle. Check __CORE_URL__ or script availability.');
       }
     })();
   </script>
