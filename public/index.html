@@ -11,11 +11,11 @@
             --card-bg: rgba(255, 255, 255, 0.1);
             --text-primary: #f7fafc;
             --text-secondary: #e2e8f0;
-            --text-muted: #d1beff;
+            --text-muted: #ffffff;
             --accent-primary: rgb(255, 125, 223);
             --accent-secondary: #649fff;
             --accent-danger: #ff0000;
-            --border-color: rgba(255, 255, 255, 0.23);
+            --border-color: rgba(246, 243, 255, 0.41);
             --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
             --radius: 1rem;
             --space: 1.5rem;
@@ -148,7 +148,31 @@
             border-radius: var(--radius);
             background: rgba(0, 0, 0, 0.1);
         }
+        .status {
+            /* Text alignment (center, left, right) */
+            text-align: center;
 
+            /* Font size */
+            font-size: 1rem;
+
+            /* Text color, using a variable for muted text */
+            color: var(--text-muted);
+
+            /* Inner spacing */
+            padding: 1rem;
+
+            /* Border style (e.g., '1px solid #fff', 'none') */
+            border: 1px var(--border-color);
+
+            /* Corner roundness */
+            border-radius: var(--radius);
+
+            /* Background color and transparency */
+            background: rgb(146, 70, 255);
+
+            /* Optional: Add a subtle transition for any changes */
+            transition: all 0.3s ease;
+        }
         /* Visualization */
         .viz {
             height: 280px;
@@ -241,7 +265,7 @@
                             </select>
                             <div class="warning small">Use <strong>headphones</strong> for monitoring to prevent feedback.</div>
                         </div>
-
+                        <div id="status" class="status">Select microphone type and click “Start Listening”.</div>
                         <div class="group">
                             <label for="sensitivity">Sensitivity</label>
                             <input type="range" id="sensitivity" min="1" max="10" value="7"/>
@@ -260,7 +284,7 @@
                             <div class="value">Current: <span id="monitorVolValue">30%</span></div>
                         </div>
 
-                        <div id="status" class="status">Select microphone type and click “Start Listening”.</div>
+
                     </div>
                 </div>
 
@@ -409,3 +433,8 @@
 </script>
 </body>
 </html>
+
+
+
+
+
