@@ -1,219 +1,335 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Baby Heartbeat Detector Pro</title>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <style>
-  :root{
-    --bg:linear-gradient(135deg,#faf5ff,#fff7ed); /* purple + orange background */
-    --card:#ffffff;
-    --text:#1e1b4b;
-    --muted:#6b7280;
-    --accent-purple:#7c3aed;
-    --accent-orange:#fb923c;
-    --accent-hover:#ea580c;
-    --accent-light:#fbbf24;
-    --danger:#dc2626;
-    --line:#fcd9bd;
-    --radius:16px;
-    --space:20px;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;min-height:100vh;}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Baby Beat Detector</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{
+            --bg:linear-gradient(135deg, #4d6cf4 0%, #fa428f 100%);
+            --card-bg: rgba(255, 255, 255, 0.1);
+            --text-primary: #f7fafc;
+            --text-secondary: #e2e8f0;
+            --text-muted: #d1beff;
+            --accent-primary: rgb(255, 125, 223);
+            --accent-secondary: #649fff;
+            --accent-danger: #ff0000;
+            --border-color: rgba(255, 255, 255, 0.23);
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+            --radius: 1rem;
+            --space: 1.5rem;
+            --glass-blur: 12px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Sora';
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: var(--space);
+        }
+        .wrap { max-width: 1100px; margin: 0 auto; }
+        .app { display: flex; flex-direction: column; gap: var(--space); }
 
-  .wrap{max-width:1100px;margin:0 auto;padding:var(--space)}
-  .app{display:flex;flex-direction:column;gap:var(--space);min-height:100vh}
+        /* Header */
+        header {
+            padding: var(--space);
+            text-align: center;
+            background: var(--card-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+        }
+        .title {
+            font-size: 2.25rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
+        }
+        .subtitle { font-size: 1.1rem; color: var(--text-muted); margin-top: 0.5rem; }
 
-  header{padding-bottom:var(--space);border-bottom:2px solid var(--line);text-align:center}
-  .title{font-size:2.2rem;font-weight:800;background:linear-gradient(90deg,var(--accent-purple),var(--accent-orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-  .subtitle{margin-top:6px;font-size:1rem;color:var(--muted)}
+        /* Navigation */
+        nav {
+            position: sticky;
+            top: var(--space);
+            z-index: 50;
+            background: var(--card-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            padding: 0.75rem;
+        }
+        .tabbar { display: flex; justify-content: center; gap: 0.75rem; }
+        .tab {
+            flex: 1;
+            max-width: 200px;
+            padding: 0.8rem 1rem;
+            border-radius: 0.75rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 1rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .tab.active {
+            background: var(--accent-primary);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(138, 92, 246, 0.4);
+        }
+        .tab:hover:not(.active) { background: rgba(255, 255, 255, 0.1); color: #fff; }
 
-  nav{position:sticky;top:0;padding:10px 0;border-bottom:1px solid var(--line);background:rgba(255,255,255,0.8);backdrop-filter:blur(12px);z-index:50}
-  .tabbar{display:flex;gap:10px;justify-content:center}
-  .tab{flex:1;max-width:220px;padding:14px 18px;border-radius:14px;border:none;background:#fff7ed;color:var(--text);cursor:pointer;font-weight:700;text-align:center;font-size:1rem;transition:all .25s;box-shadow:inset 0 0 0 2px var(--line)}
-  .tab.active{background:linear-gradient(135deg,var(--accent-purple),var(--accent-orange));color:#fff;box-shadow:0 4px 12px rgba(251,146,60,.4)}
-  .tab:hover:not(.active){box-shadow:0 2px 8px rgba(251,146,60,.3);color:var(--accent-orange)}
+        /* Main Content */
+        main { flex: 1; display: flex; flex-direction: column; gap: var(--space); }
+        section {
+            padding: var(--space);
+            background: var(--card-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            display: none;
+        }
+        section.active { display: block; }
 
-  main{flex:1;display:flex;flex-direction:column;gap:var(--space)}
-  section{padding:var(--space);border:1px solid var(--line);border-radius:var(--radius);background:rgba(255,255,255,0.9);backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,0.05)}
+        /* Buttons */
+        button {
+            padding: 1rem 1.5rem;
+            border-radius: 1rem;
+            border: none;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: #fff;
+            font-family: 'Sora';
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(138, 92, 246, 0.4);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+        }
+        .top-cta { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
 
-  /* Call-to-action area */
-  .top-cta{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
-  button{flex:1 1 auto;min-width:150px;padding:16px 22px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent-purple),var(--accent-orange));color:#fff;font-weight:700;font-size:1.05rem;cursor:pointer;transition:transform .2s,box-shadow .2s;text-align:center;box-shadow:0 4px 10px rgba(0,0,0,0.15)}
-  button:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 16px rgba(251,146,60,.4);background:linear-gradient(135deg,var(--accent-hover),var(--accent-purple))}
-  button:disabled{opacity:.6;cursor:not-allowed;background:#e5e7eb;color:#6b7280;box-shadow:none}
+        /* Controls & Panels */
+        .pane { display: flex; flex-direction: column; gap: var(--space); }
+        .group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: var(--space);
+            border-radius: var(--radius);
+            background: rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-color);
+        }
+        .group h3 { margin: 0 0 0.5rem; color: var(--text-primary); font-weight: 700; }
+        .status {
+            text-align: center;
+            font-size: 1rem;
+            color: var(--text-muted);
+            padding: 1rem;
+            border: 1px dashed var(--border-color);
+            border-radius: var(--radius);
+            background: rgba(0, 0, 0, 0.1);
+        }
 
-  /* Controls */
-  .pane{display:flex;flex-direction:column;gap:var(--space)}
-  .group{display:flex;flex-direction:column;gap:8px;padding:var(--space);border:1px solid var(--line);border-radius:var(--radius);background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.05)}
-  .group h3{margin:0;color:var(--accent-orange)}
+        /* Visualization */
+        .viz {
+            height: 280px;
+            border-radius: var(--radius);
+            background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.2) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .waveform {
+            position: absolute; left: 0; top: 50%; width: 100%; height: 2px;
+            background: linear-gradient(90deg, #f87171, #fb923c, #3b82f6);
+            transform: translateY(-50%);
+            box-shadow: 0 0 8px #fb923c, 0 0 4px #3b82f6;
+        }
+        .pulse {
+            position: absolute; left: 50%; top: 50%; width: 20px; height: 20px;
+            background: #f87171;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            box-shadow: 0 0 16px #f87171, 0 0 8px #f87171;
+        }
+        .bpm { text-align: center; font-weight: 800; color: #fff; margin-top: 1rem; font-size: 1.75rem; }
+        .hint { text-align: center; font-size: 0.9rem; color: var(--text-muted); }
 
-  .status{text-align:center;font-size:.95rem;color:var(--muted);padding:12px;border:1px dashed var(--line);border-radius:var(--radius)}
+        /* Other Components */
+        .audio { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+        .scrollable { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space); }
+        .warning {
+            border: 1px solid var(--accent-danger);
+            border-radius: var(--radius);
+            padding: 1rem;
+            background: rgba(239, 68, 68, 0.1);
+            color: #ffffff;
+        }
 
-  /* Visualization */
-  .viz{height:280px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,#faf5ff,#fff7ed);position:relative;overflow:hidden;box-shadow:inset 0 2px 8px rgba(0,0,0,0.05)}
-  .waveform{position:absolute;left:0;top:50%;width:100%;height:2px;background:var(--danger);transform:translateY(-50%)}
-  .pulse{position:absolute;left:50%;top:50%;width:18px;height:18px;background:linear-gradient(135deg,var(--accent-purple),var(--accent-orange));border-radius:50%;transform:translate(-50%,-50%);opacity:0}
-  .bpm{text-align:center;font-weight:800;color:var(--accent-orange);margin-top:14px;font-size:1.4rem;letter-spacing:.5px}
-  .hint{text-align:center;font-size:.9rem;color:var(--muted)}
-
-  .audio{display:flex;flex-direction:column;align-items:center;gap:8px}
-
-  .scrollable{max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:var(--space)}
-  .warning{border:2px solid var(--danger);border-radius:var(--radius);padding:var(--space);background:#fef2f2;color:var(--danger);box-shadow:0 2px 6px rgba(0,0,0,0.05)}
-
-  /* Layout improvements */
-  @media (max-width:599px){
-    .grid-detector{display:flex;flex-direction:column;gap:var(--space)}
-    button{flex:1 1 100%}
-  }
-  @media (min-width:600px) and (max-width:1023px){
-    .grid-detector{display:grid;grid-template-columns:1fr 1fr;gap:var(--space)}
-    .area-cta{grid-column:span 2}
-    .area-audio{grid-column:span 2}
-  }
-  @media (min-width:1024px){
-    .grid-detector{display:grid;grid-template-columns:1fr 1.5fr;gap:var(--space)}
-    .area-cta{grid-column:span 2}
-    .area-audio{grid-column:span 2}
-  }
-  </style>
+        /* Layout */
+        @media (max-width: 599px) {
+            .grid-detector { display: flex; flex-direction: column; gap: var(--space); }
+        }
+        @media (min-width: 600px) and (max-width: 1023px) {
+            .grid-detector { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space); }
+            .area-cta, .area-audio { grid-column: span 2; }
+        }
+        @media (min-width: 1024px) {
+            .grid-detector { display: grid; grid-template-columns: 1fr 1.5fr; gap: var(--space); }
+            .area-cta, .area-audio { grid-column: span 2; }
+        }
+    </style>
 </head>
 <body>
-  <div class="app wrap">
+<div class="app wrap">
     <header>
-      <div class="title">Baby Heartbeat Detector Pro</div>
-      <div class="subtitle">Monitor, visualize & record your baby's heartbeat safely</div>
+        <div class="title">Baby Beat Detector</div>
+        <div class="subtitle">Monitor, visualize & record your baby's heartbeat</div>
     </header>
 
     <nav>
-      <div class="tabbar">
-        <button class="tab active" data-tab="detector">Detector</button>
-        <button class="tab" data-tab="instructions">Instructions</button>
-        <button class="tab" data-tab="positioning">Positioning</button>
-      </div>
+        <div class="tabbar">
+            <button class="tab active" data-tab="detector">Detector</button>
+            <button class="tab" data-tab="instructions">Instructions</button>
+            <button class="tab" data-tab="positioning">Positioning</button>
+        </div>
     </nav>
 
     <main>
-      <section id="detector-tab" class="tab-content active">
-        <div class="grid-detector">
-          <!-- Call-to-action toolbar -->
-          <div class="area-cta">
-            <div class="top-cta">
-              <button id="startBtn">Start Listening</button>
-              <button id="stopBtn" disabled>Stop</button>
-              <button id="monitorBtn" disabled>Monitor: Off</button>
-              <button id="playEnhancedBtn" disabled>Play Enhanced</button>
-              <button id="recBtn" disabled>Start Recording</button>
+        <section id="detector-tab" class="tab-content active">
+            <div class="grid-detector">
+                <!-- Call-to-action toolbar -->
+                <div class="area-cta">
+                    <div class="top-cta">
+                        <button id="startBtn">Start Listening</button>
+                        <button id="stopBtn" disabled>Stop</button>
+                        <button id="monitorBtn" disabled>Monitor: Off</button>
+                        <button id="playEnhancedBtn" disabled>Play Enhanced Sound</button>
+                        <button id="recBtn" disabled>Start Recording</button>
+                    </div>
+                </div>
+
+                <!-- Controls panel -->
+                <div class="area-controls">
+                    <div class="pane">
+                        <div class="group">
+                            <h3>Microphone</h3>
+                            <select id="micType" class="select">
+                                <option value="smartphone">Smartphone Built-in Mic</option>
+                                <option value="dji-mic-mini" selected>DJI Mic Mini</option>
+                                <option value="professional">Professional External Mic</option>
+                                <option value="stethoscope">Electronic Stethoscope</option>
+                            </select>
+                            <div class="warning small">Use <strong>headphones</strong> for monitoring to prevent feedback.</div>
+                        </div>
+
+                        <div class="group">
+                            <label for="sensitivity">Sensitivity</label>
+                            <input type="range" id="sensitivity" min="1" max="10" value="7"/>
+                            <div class="value">Current: <span id="sensitivityValue">7</span></div>
+                        </div>
+
+                        <div class="group">
+                            <label for="filterFreq">Filter Frequency (Hz)</label>
+                            <input type="range" id="filterFreq" min="10" max="400" value="60"/>
+                            <div class="value">Current: <span id="filterValue">60 Hz</span></div>
+                        </div>
+
+                        <div class="group">
+                            <label for="monitorVol">Monitor Volume (%)</label>
+                            <input type="range" id="monitorVol" min="0" max="100" value="30"/>
+                            <div class="value">Current: <span id="monitorVolValue">30%</span></div>
+                        </div>
+
+                        <div id="status" class="status">Select microphone type and click “Start Listening”.</div>
+                    </div>
+                </div>
+
+                <!-- Visualization panel -->
+                <div class="area-viz">
+                    <div class="pane">
+                        <div class="viz" id="visualization">
+                            <div class="waveform" id="waveform"></div>
+                            <div class="pulse" id="pulse"></div>
+                        </div>
+                        <div class="bpm"><span id="bpm">-- BPM</span></div>
+                        <div class="hint">Tip: Adjust sensitivity and filter to reduce background noise.</div>
+                    </div>
+                </div>
+
+                <!-- Audio playback -->
+                <div class="area-audio">
+                    <div class="audio" id="playbackArea" style="display:none;">
+                        <audio id="playbackAudio" controls></audio>
+                        <a id="downloadLink" href="#" download="heartbeat.webm">Download recording</a>
+                    </div>
+                </div>
             </div>
-          </div>
+        </section>
 
-          <!-- Controls panel -->
-          <div class="area-controls">
-            <div class="pane">
-              <div class="group">
-                <h3>Microphone</h3>
-                <select id="micType" class="select">
-                  <option value="smartphone">Smartphone Built-in Mic</option>
-                  <option value="dji-mic-mini" selected>DJI Mic Mini</option>
-                  <option value="professional">Professional External Mic</option>
-                  <option value="stethoscope">Electronic Stethoscope</option>
-                  <option value="custom">Custom Settings</option>
-                </select>
-                <div class="warning small">Use <strong>headphones</strong> for monitoring to prevent feedback.</div>
-              </div>
-
-              <div class="group">
-                <label for="sensitivity">Sensitivity</label>
-                <input type="range" id="sensitivity" min="1" max="10" value="7"/>
-                <div class="value">Current: <span id="sensitivityValue">7</span></div>
-              </div>
-
-              <div class="group">
-                <label for="filterFreq">Filter Frequency (Hz)</label>
-                <input type="range" id="filterFreq" min="10" max="400" value="60"/>
-                <div class="value">Current: <span id="filterValue">60 Hz</span></div>
-              </div>
-
-              <div class="group">
-                <label for="monitorVol">Monitor Volume (%)</label>
-                <input type="range" id="monitorVol" min="0" max="100" value="30"/>
-                <div class="value">Current: <span id="monitorVolValue">30%</span></div>
-              </div>
-
-              <div id="status" class="status">Select microphone type and click “Start Listening”.</div>
+        <section id="instructions-tab" class="tab-content">
+            <div class="scrollable">
+                <div class="warning">
+                    <h4>Important Medical Disclaimer</h4>
+                    <p class="small">This app is for educational purposes only. It should NOT replace professional prenatal care or medical equipment. Always consult healthcare professionals for proper fetal monitoring.</p>
+                </div>
+                <h3>Microphone Setup Guide</h3>
+                <ul>
+                    <li>Always <strong>use headphones</strong> for live monitoring to avoid feedback.</li>
+                    <li>Keep filter around <strong>50–80 Hz</strong>, sensitivity <strong>6–9</strong>.</li>
+                    <li>Place mic directly on skin; move slowly and gently.</li>
+                </ul>
+                <h3>Troubleshooting</h3>
+                <ul>
+                    <li>No mic detected? Use HTTPS/localhost and allow permission.</li>
+                    <li>Too much hiss? Lower Sensitivity or Monitor Volume.</li>
+                    <li>Very high BPM (e.g. 180)? Likely noise/double-counting.</li>
+                </ul>
             </div>
-          </div>
+        </section>
 
-          <!-- Visualization panel -->
-          <div class="area-viz">
-            <div class="pane">
-              <div class="viz" id="visualization">
-                <div class="waveform" id="waveform"></div>
-                <div class="pulse" id="pulse"></div>
-              </div>
-              <div class="bpm"><span id="bpm">-- BPM</span></div>
-              <div class="hint">Tip: Adjust sensitivity and filter to reduce background noise.</div>
+        <section id="positioning-tab" class="tab-content">
+            <div class="scrollable">
+                <h3>Optimal Microphone Positioning</h3>
+                <p class="small">From ~18 weeks: start just below the belly button. Earlier: closer to the pubic bone. Sweep slowly and patiently.</p>
+                <div class="warning small">If you cannot detect a heartbeat or have concerns, contact your healthcare provider immediately.</div>
             </div>
-          </div>
-
-          <!-- Audio playback -->
-          <div class="area-audio">
-            <div class="audio" id="playbackArea" style="display:none;">
-              <audio id="playbackAudio" controls></audio>
-              <a id="downloadLink" href="#" download="heartbeat.webm">Download recording</a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="instructions-tab" class="tab-content">
-        <div class="scrollable">
-          <div class="warning">
-            <h4>Important Medical Disclaimer</h4>
-            <p class="small">This app is for educational purposes only. It should NOT replace professional prenatal care or medical equipment. Always consult healthcare professionals for proper fetal monitoring.</p>
-          </div>
-          <h3>Microphone Setup Guide</h3>
-          <ul>
-            <li>Always <strong>use headphones</strong> for live monitoring to avoid feedback.</li>
-            <li>Keep filter around <strong>50–80 Hz</strong>, sensitivity <strong>6–9</strong>.</li>
-            <li>Place mic directly on skin; move slowly and gently.</li>
-          </ul>
-          <h3>Troubleshooting</h3>
-          <ul>
-            <li>No mic detected? Use HTTPS/localhost and allow permission.</li>
-            <li>Too much hiss? Lower Sensitivity or Monitor Volume.</li>
-            <li>Very high BPM (e.g. 180)? Likely noise/double-counting.</li>
-          </ul>
-        </div>
-      </section>
-
-      <section id="positioning-tab" class="tab-content">
-        <div class="scrollable">
-          <h3>Optimal Microphone Positioning</h3>
-          <p class="small">From ~18 weeks: start just below the belly button. Earlier: closer to the pubic bone. Sweep slowly and patiently.</p>
-          <div class="warning small">If you cannot detect a heartbeat or have concerns, contact your healthcare provider immediately.</div>
-        </div>
-      </section>
+        </section>
     </main>
-  </div>
+</div>
 
-  <script>
+<script>
     // Prefer setting window.__CORE_URL__ globally from your server. We still provide robust fallbacks below.
     window.__CORE_URL__ = window.__CORE_URL__ || "/api/core?token=DEV_TOKEN";
-  </script>
-  <script type="module">
+</script>
+<script type="module">
     // Lightweight tab logic
     document.querySelectorAll('.tab').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.tab + '-tab').classList.add('active');
-      });
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.tab + '-tab').classList.add('active');
+        });
     });
 
     // ---- Robust Core Loader ----
@@ -221,87 +337,75 @@
     function setStatus(msg){ if(statusEl){ statusEl.textContent = msg; } }
 
     async function tryDynamicImport(url){
-      try{
-        const mod = await import(url);
-        const init = mod.initBabyBeat || (mod.default && (mod.default.initBabyBeat || mod.default));
-        if(typeof init === 'function') return init;
-      }catch(e){
-        console.warn('[core] dynamic import failed for', url, e);
-      }
-      return null;
+        try{
+            const mod = await import(url);
+            const init = mod.initBabyBeat || (mod.default && (mod.default.initBabyBeat || mod.default));
+            if(typeof init === 'function') return init;
+        }catch(e){
+            console.warn('[core] dynamic import failed for', url, e);
+        }
+        return null;
     }
 
     function tryGlobal(){
-      if(typeof window.initBabyBeat === 'function') return window.initBabyBeat;
-      if(window.babyBeatCore && typeof window.babyBeatCore.initBabyBeat === 'function') return window.babyBeatCore.initBabyBeat;
-      return null;
+        if(typeof window.initBabyBeat === 'function') return window.initBabyBeat;
+        if(window.babyBeatCore && typeof window.babyBeatCore.initBabyBeat === 'function') return window.babyBeatCore.initBabyBeat;
+        return null;
     }
 
     async function loadCore(){
-      const candidates = [
-        window.__CORE_URL__,
-        './babybeat-core.js',
-        '/babybeat-core.js',
-      ];
-      for(const url of candidates){
-        const init = await tryDynamicImport(url);
-        if(init) return { init, source: url };
-      }
-      // Attempt UMD fallback by injecting a script tag if globals might be exposed
-      const umdCandidates = [
-        './babybeat-core.umd.js',
-        '/babybeat-core.umd.js'
-      ];
-      for(const url of umdCandidates){
-        try{
-          await new Promise((res, rej) => {
-            const s = document.createElement('script');
-            s.src = url; s.async = true; s.onload = res; s.onerror = rej; document.head.appendChild(s);
-          });
-          const init = tryGlobal();
-          if(init) return { init, source: url };
-        }catch(e){ console.warn('[core] UMD load failed for', url, e); }
-      }
-      const g = tryGlobal();
-      if(g) return { init: g, source: 'global' };
-      throw new Error('Could not load core bundle. Tried ESM and UMD fallbacks.');
+        // We only have an ESM build, so we simplify the loader.
+        const candidates = [
+            window.__CORE_URL__, // Tries /api/core?token=DEV_TOKEN first
+            './babybeat-core.js', // Fallback to a local file
+        ];
+        for(const url of candidates){
+            const init = await tryDynamicImport(url);
+            if(init) return { init, source: url };
+        }
+
+        // If all else fails, try the global scope as a last resort.
+        const g = tryGlobal();
+        if(g) return { init: g, source: 'global' };
+
+        throw new Error('Could not load core bundle. Tried API and local fallback.');
     }
 
     (async () => {
-      try {
-        setStatus('Loading audio engine…');
-        const { init, source } = await loadCore();
-        setStatus(`Initializing (source: ${source})…`);
-        window.babyBeat = await init({
-          elements: {
-            micType: '#micType',
-            start: '#startBtn',
-            stop: '#stopBtn',
-            monitor: '#monitorBtn',
-            playEnhanced: '#playEnhancedBtn',
-            record: '#recBtn',
-            status: '#status',
-            sensitivity: '#sensitivity',
-            sensitivityValue: '#sensitivityValue',
-            filterFreq: '#filterFreq',
-            filterValue: '#filterValue',
-            monitorVol: '#monitorVol',
-            monitorVolValue: '#monitorVolValue',
-            waveform: '#waveform',
-            pulse: '#pulse',
-            bpm: '#bpm',
-            playbackArea: '#playbackArea',
-            playbackAudio: '#playbackAudio',
-            downloadLink: '#downloadLink'
-          },
-          async licenseValidator () { return true; }
-        });
-        setStatus('Ready. Select a microphone and press Start Listening.');
-      } catch (e) {
-        console.error('[core] Failed to initialize:', e);
-        setStatus('Failed to load core bundle. Check __CORE_URL__ or script availability.');
-      }
+        try {
+            setStatus('Loading audio engine…');
+            const { init, source } = await loadCore();
+            setStatus(`Initializing (source: ${source})…`);
+            window.babyBeat = await init({
+                elements: {
+                    micType: '#micType',
+                    start: '#startBtn',
+                    stop: '#stopBtn',
+                    monitor: '#monitorBtn',
+                    playEnhanced: '#playEnhancedBtn',
+                    record: '#recBtn',
+                    status: '#status',
+                    sensitivity: '#sensitivity',
+                    sensitivityValue: '#sensitivityValue',
+                    filterFreq: '#filterFreq',
+                    filterValue: '#filterValue',
+                    monitorVol: '#monitorVol',
+                    monitorVolValue: '#monitorVolValue',
+                    waveform: '#waveform',
+                    pulse: '#pulse',
+                    bpm: '#bpm',
+                    playbackArea: '#playbackArea',
+                    playbackAudio: '#playbackAudio',
+                    downloadLink: '#downloadLink'
+                },
+                async licenseValidator () { return true; }
+            });
+            setStatus('Ready. Select a microphone and press Start Listening.');
+        } catch (e) {
+            console.error('[core] Failed to initialize:', e);
+            setStatus('Failed to load core bundle. Check __CORE_URL__ or script availability.');
+        }
     })();
-  </script>
+</script>
 </body>
 </html>
