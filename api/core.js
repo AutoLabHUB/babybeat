@@ -9,6 +9,7 @@ module.exports = (req, res) => {
   if (!valid || token !== valid) {
     return res.status(403).send("Forbidden");
   }
+  // Serve the ESM file only (no UMD/wrapper needed)
   const filePath = path.join(process.cwd(), "public", "babybeat-core.js");
   if (!fs.existsSync(filePath)) return res.status(404).send("Core not found");
 
