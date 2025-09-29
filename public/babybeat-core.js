@@ -181,33 +181,50 @@ export async function initBabyBeat (opts) {
       }
     }
 
-    render(locked) {
-      const { ctx, width, height, buffer, head, base, scale } = this;
-      if (!width || !height || !buffer.length) return;
-      ctx.clearRect(0, 0, width, height);
+   render(locked, scope) {
+  const { ctx, width, height, buffer, head, base, scale } = this;
+  if (!width || !height) return;
+  ctx.clearRect(0, 0, width, height);
 
-      // grid
-      ctx.globalAlpha = 0.18;
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = 0; x < width; x += 35) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, height); }
-      for (let y = 0; y < height; y += 35) { ctx.moveTo(0, y + 0.5); ctx.lineTo(width, y + 0.5); }
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+  // grid
+  ctx.globalAlpha = 0.18;
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x < width; x += 35) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, height); }
+  for (let y = 0; y < height; y += 35) { ctx.moveTo(0, y + 0.5); ctx.lineTo(width, y + 0.5); }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
 
-      // trace
-      ctx.strokeStyle = locked ? '#16a34a' : '#64748b';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let i = 0; i < buffer.length; i++) {
-        const idx = (head + i) % buffer.length;
-        const x = i;
-        const y = base - buffer[idx] * scale;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
+  // (1) Actual audio waveform (time-domain scope)
+  if (scope && scope.length) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 1.25;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const step = width / scope.length;
+    ctx.beginPath();
+    for (let i = 0; i < scope.length; i++) {
+      const v = (scope[i] - 128) / 128;     // -1..1
+      const x = i * step;
+      const y = base + (-v) * (scale * 0.9); // invert so loudness goes up
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
+    ctx.stroke();
+  }
+
+  // (2) Beat trace overlay (green when pattern found)
+  ctx.strokeStyle = locked ? '#16a34a' : '#64748b';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < buffer.length; i++) {
+    const idx = (head + i) % buffer.length;
+    const x = i;
+    const y = base - buffer[idx] * scale;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
 
     destroy() {
       window.removeEventListener('resize', this._onResize);
@@ -296,7 +313,8 @@ export async function initBabyBeat (opts) {
       isRunning=true;
 
       // Prepare buffers, tracker, visualiser
-      const buf = new Float32Array(analyser.fftSize);
+     const floatBuf = new Float32Array(analyser.fftSize); // for peak/EMA
+     const scopeBuf = new Uint8Array(analyser.fftSize);   // for drawing
       tracker = new BeatTracker();
       vis = new ECGVis(els.waveform);
 
@@ -332,7 +350,7 @@ export async function initBabyBeat (opts) {
 
         // ECG overlay
         vis.push(level, beat && hasPattern);
-        vis.render(hasPattern);
+        vis.render(hasPattern, scopeBuf);
 
         drawRAF = requestAnimationFrame(drawLoop);
       };
