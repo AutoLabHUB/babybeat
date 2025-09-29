@@ -181,14 +181,8 @@
   transform: none;   /* don't move the whole layer */
   background: none;
 }
-.waveform::before{
-  content:"";
-  position:absolute; left:0; right:0; top:50%;
-  height:2px;
-  transform: translateY(var(--line-y, -50%));
-  background: linear-gradient(90deg,#f87171,#fb923c,#caff00);
-  box-shadow: 0 0 8px #fb923c, 0 0 4px #3b82f6;
-}
+.waveform::before { display: none !important; }
+
 
 
 
