@@ -139,15 +139,7 @@
             border: 1px solid var(--border-color);
         }
         .group h3 { margin: 0 0 0.5rem; color: var(--text-primary); font-weight: 700; }
-        .status {
-            text-align: center;
-            font-size: 1rem;
-            color: var(--text-muted);
-            padding: 1rem;
-            border: 1px dashed var(--border-color);
-            border-radius: var(--radius);
-            background: rgba(0, 0, 0, 0.1);
-        }
+        
         .status {
             /* Text alignment (center, left, right) */
             text-align: center;
@@ -181,12 +173,25 @@
             position: relative;
             overflow: hidden;
         }
-        .waveform {
-            position: absolute; left: 0; top: 50%; width: 100%; height: 2px;
-            background: linear-gradient(90deg, #f87171, #fb923c, #caff00);
-            transform: translateY(-50%);
-            box-shadow: 0 0 8px #fb923c, 0 0 4px #3b82f6;
-        }
+      /* REPLACE the existing .waveform{} block with this */
+.waveform{
+  position: absolute;
+  inset: 0;              /* fill the .viz card */
+  width: 100%;
+  height: 100%;          /* let the injected canvas be full height */
+  background: none;      /* old gradient line moves to ::before */
+  transform: translateY(-50%); /* keep your JS translateY(...) working */
+}
+.waveform::before{
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, #f87171, #fb923c, #caff00);
+  box-shadow: 0 0 8px #fb923c, 0 0 4px #3b82f6;
+}
+
         .pulse {
             position: absolute; left: 50%; top: 50%; width: 20px; height: 20px;
             background: #f87171;
@@ -211,6 +216,11 @@
 
         /* Layout */
         @media (max-width: 599px) {
+          
+  .area-viz{ order: 0; }
+  .area-controls{ order: 1; }
+  .area-cta{ order: 2; }
+  .area-audio{ order: 3; }
             .grid-detector { display: flex; flex-direction: column; gap: var(--space); }
         }
         @media (min-width: 600px) and (max-width: 1023px) {
