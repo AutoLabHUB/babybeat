@@ -328,7 +328,7 @@ export async function initBabyBeat (opts) {
 
         // Keep your existing vertical waveform motion
         const y = Math.min(48, Math.max(-48, (ema - threshold) * 600));
-        els.waveform.style.transform = `translateY(calc(-50% + ${y}px))`;
+        els.waveform.style.setProperty('--line-y', `calc(-50% + ${y}px)`);
 
         // ECG overlay
         vis.push(level, beat && hasPattern);
