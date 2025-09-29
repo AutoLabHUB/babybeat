@@ -7,7 +7,7 @@ const checkoutButton = document.getElementById('checkout-button');
 
 checkoutButton.addEventListener('click', function () {
     // Create a checkout session on the server
-    fetch('/create-checkout-session', {
+    fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
