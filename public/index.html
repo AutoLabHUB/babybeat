@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>BabyBeat — Hear the Rhythm</title>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <!-- Put this in <head> and have Vercel inject it at build if you want -->
+<meta name="stripe-publishable-key" content="">
+
   <style>
     /* ===============================
        BabyBeat — Full Page CSS
@@ -511,15 +514,24 @@
     // Option A: You already have /welcome.js handling checkout — keep your existing flow.
     if (window.startCheckout) return window.startCheckout();
 
-    // Option B: Quick client-only redirect (requires a real price + publishable key server-side or via SDK):
-    // NOTE: Best practice is to create the Checkout Session on your server and return the sessionId.
-    const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY || 'pk_test_12345'); // <-- replace
-    stripe.redirectToCheckout({
-      lineItems: [{ price: 'price_1ABCDEF123456', quantity: 1 }], // <-- replace
-      mode: 'payment',
-      successUrl: window.location.origin + '/?success=true',
-      cancelUrl: window.location.origin + '/?canceled=true'
-    });
+  <script src="https://js.stripe.com/v3/"></script>
+<script>
+  // Read publishable key (no placeholder fallback!)
+  const PUBLISHABLE_KEY =
+    (document.querySelector('meta[name="stripe-publishable-key"]')?.content) ||
+    window.STRIPE_PUBLISHABLE_KEY; // if you set it globally at render time
+
+  const stripe = PUBLISHABLE_KEY ? Stripe(PUBLISHABLE_KEY) : null;
+
+  const checkoutBtn = document.getElementById('checkout-button');
+  checkoutBtn.addEventListener('click', async () => {
+    // Use your server route
+    const r = await fetch('/api/create-checkout-session', { method: 'POST' });
+    const data = await r.json();
+    if (!stripe) {
+      alert('Stripe key not configured'); return;
+    }
+    await stripe.redirectToCheckout({ sessionId: data.id });
   });
 </script>
 
