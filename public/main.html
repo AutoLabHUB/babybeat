@@ -173,24 +173,26 @@
             position: relative;
             overflow: hidden;
         }
-      /* REPLACE the existing .waveform{} block with this */
+/* let the canvas fill the card; move only the thin line via a CSS var */
 .waveform{
   position: absolute;
-  inset: 0;              /* fill the .viz card */
+  inset: 0;           /* fill .viz */
   width: 100%;
-  height: 100%;          /* let the injected canvas be full height */
-  background: none;      /* old gradient line moves to ::before */
-  transform: translateY(-50%); /* keep your JS translateY(...) working */
+  height: 100%;
+  transform: none;    /* important: don't translate the whole layer */
+  background: none;
 }
 .waveform::before{
   content: "";
   position: absolute;
   left: 0; right: 0; top: 50%;
   height: 2px;
-  transform: translateY(-50%);
+  /* this is the animated line the user sees */
+  transform: translateY(var(--line-y, -50%));
   background: linear-gradient(90deg, #f87171, #fb923c, #caff00);
   box-shadow: 0 0 8px #fb923c, 0 0 4px #3b82f6;
 }
+
 
         .pulse {
             position: absolute; left: 50%; top: 50%; width: 20px; height: 20px;
