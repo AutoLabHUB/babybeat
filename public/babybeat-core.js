@@ -151,7 +151,7 @@ export async function initBabyBeat (opts) {
           this.canvas.width = w; this.canvas.height = h;
           this.width = w; this.height = h;
           this.base = this.height * 0.55;
-          this.scale = this.height * 0.35;
+         this.scale = this.height * 0.55;   
         }
       };
       onResize();
@@ -300,7 +300,8 @@ export async function initBabyBeat (opts) {
 
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = ANALYSER_FFT;
-      analyser.smoothingTimeConstant = ANALYSER_SMOOTHING;
+   analyser.smoothingTimeConstant = 0.96;
+
 
       monitorGain = audioCtx.createGain();
       monitorGain.gain.value = parseInt(els.monitorVol.value,10)/100;
@@ -329,44 +330,50 @@ export async function initBabyBeat (opts) {
       const drawLoop = () => {
         if (!isRunning) return;
 
-        // 1) Read analyser data
-        analyser.getFloatTimeDomainData(floatBuf);
-        let peak = 0;
-        for (let i = 0; i < floatBuf.length; i++) {
-          const v = Math.abs(floatBuf[i]);
-          if (v > peak) peak = v;
-        }
-        analyser.getByteTimeDomainData(scopeBuf);
+    
+     // 1) Read analyser data
+analyser.getFloatTimeDomainData(floatBuf);
+let peak = 0, sumSq = 0;
+for (let i = 0; i < floatBuf.length; i++) {
+  const v = floatBuf[i];
+  const av = Math.abs(v);
+  if (av > peak) peak = av;
+  sumSq += v * v;
+}
+const rms = Math.sqrt(sumSq / floatBuf.length);
+analyser.getByteTimeDomainData(scopeBuf);
 
-        // 2) Thresholding / smoothing → level
-        const sens = parseInt(els.sensitivity.value, 10);
-        const threshold = 0.02 * (11 - sens);
-        ema = SMOOTH(ema, peak, SMOOTHING_ALPHA);
+// 2) Thresholding / smoothing → level
+const sens = parseInt(els.sensitivity.value, 10);
+const threshold = 0.02 * (11 - sens);
+ema = SMOOTH(ema, peak, SMOOTHING_ALPHA);
 
-        // Normalize against threshold into 0..1 “level”
-        const level = Math.max(0, Math.min(1, (ema - threshold) * 12));
+// Normalize 0..1 “level”
+const level = Math.max(0, Math.min(1, (ema - threshold) * 12));
 
-        // 3) Beat tracking
-        const now = performance.now();
-        const { beat, bpm: lockBpm, hasPattern } = tracker.process(level, now);
+// 3) Beat tracking
+const now = performance.now();
+const { beat, bpm: lockBpm, hasPattern } = tracker.process(level, now);
 
-        // 4) UI: BPM shows only when pattern is stable
-        if (hasPattern && lockBpm) {
-          bpm = lockBpm;
-          els.bpm.textContent = `${bpm} BPM`;
-        } else {
-          els.bpm.textContent = `-- BPM`;
-        }
+// 4) BPM label
+if (hasPattern && lockBpm) {
+  bpm = lockBpm;
+  els.bpm.textContent = `${bpm} BPM`;
+} else {
+  els.bpm.textContent = `-- BPM`;
+}
 
-        // 5) Pulse effect on confirmed beats
-        if (beat && hasPattern) pulse();
+// 5) Pulse on confirmed beats
+if (beat && hasPattern) pulse();
 
-        // 6) Auto visual gain (clear waveform even when quiet)
-        const targetGain = Math.min(6, Math.max(0.9, 0.9 / Math.max(peak, 0.02)));
-        scopeGain = SMOOTH(scopeGain, targetGain, 0.12);
+// 6) Auto visual gain — smoother & with higher headroom
+const signal = Math.max(peak, rms * 1.8); // rms is steadier than peak
+const targetGain = Math.min(12, Math.max(1.2, 1.2 / Math.max(signal, 0.015)));
+scopeGain = SMOOTH(scopeGain, targetGain, 0.06); // slower changes
 
-        // 7) Draw single gradient waveform (+glow when locked)
-        vis.render(hasPattern, scopeBuf, scopeGain);
+// 7) Draw the waveform
+vis.render(hasPattern, scopeBuf, scopeGain);
+
 
         drawRAF = requestAnimationFrame(drawLoop);
       };
