@@ -221,6 +221,124 @@
             .grid-detector { display: grid; grid-template-columns: 1fr 1.5fr; gap: var(--space); }
             .area-cta, .area-audio { grid-column: span 2; }
         }
+
+        /* =======================
+   MOBILE LAYOUT POLISH
+   ======================= */
+
+/* Align sticky menu with page content */
+nav { position: sticky; top: 0; z-index: 50; }
+nav .tabbar{
+  width: min(920px, 92vw);
+  margin: 8px auto 12px auto;
+  border-radius: 14px;
+}
+
+/* Make detector area align with the tabbar width */
+.grid-detector{
+  width: min(920px, 92vw);
+  margin-inline: auto;
+}
+
+/* Visualiser prominence on phones */
+@media (max-width: 680px){
+  /* Re-order to: viz → status → CTA → controls → audio */
+  .grid-detector{
+    display: grid;
+    grid-template-areas:
+      "viz"
+      "status"
+      "cta"
+      "controls"
+      "audio";
+    gap: 12px;
+  }
+  .area-viz{ grid-area: viz; }
+  /* Put the status in its own row (we'll lift the existing #status) */
+  #status{
+    grid-area: status;
+    width: 100%;
+    display: block;
+    text-align: center;
+    font-weight: 700;
+    font-size: clamp(14px, 4.2vw, 16px);
+    padding: 10px 12px;
+    margin: 0 auto;
+    border-radius: 12px;
+  }
+
+  .area-cta{ grid-area: cta; }
+  .area-controls{ grid-area: controls; }
+  .area-audio{ grid-area: audio; }
+
+  /* Visualiser box height and canvas clarity */
+  .area-viz .pane{ min-height: 220px; }
+  #waveform{ min-height: 200px; }
+  /* If you insert a canvas in #waveform, make sure it fills */
+  #waveform canvas{ width: 100% !important; height: 100% !important; }
+
+  /* Buttons: bigger tap targets, tidy wrapping */
+  .top-cta{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .top-cta button{
+    width: 100%;
+    padding: 12px 10px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  /* Make Start/Stop full width rows for clarity */
+  #startBtn{ grid-column: 1 / -1; }
+  #stopBtn{ grid-column: 1 / -1; }
+
+  /* Controls: compact, easy to scan */
+  .area-controls .pane{ padding: 12px; }
+  .area-controls .group{ margin-bottom: 10px; }
+  .area-controls label{ font-size: 13px; font-weight: 600; }
+  .area-controls input[type="range"]{ width: 100%; touch-action: pan-y; }
+  .select, select{
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  /* BPM readout under viz for quick glance */
+  .area-viz .bpm{
+    position: static;
+    margin-top: 6px;
+    text-align: center;
+    font-size: clamp(16px, 5vw, 18px);
+    font-weight: 800;
+  }
+
+  /* Audio playback sits last and compact */
+  .area-audio .audio{
+    padding: 10px;
+    border-radius: 12px;
+  }
+}
+
+/* Slightly larger phones / small tablets */
+@media (min-width: 681px) and (max-width: 960px){
+  .grid-detector,
+  nav .tabbar{ width: min(980px, 94vw); }
+  .top-cta{ grid-template-columns: repeat(3, 1fr); }
+  #startBtn{ grid-column: auto; }
+  #stopBtn{ grid-column: auto; }
+}
+
+/* Cosmetic: ensure all “cards/boxes” line up visually with the sticky menu */
+nav .tabbar,
+.grid-detector .pane,
+.area-audio .audio{
+  /* match radius/shadow to your theme */
+  border-radius: 14px;
+}
+
     </style>
 </head>
 <body>
@@ -235,6 +353,20 @@
     }
   })();
 </script>
+    <script>
+  (function(){
+    const start = document.querySelector('#startBtn');
+    const viz = document.querySelector('.area-viz');
+    const status = document.querySelector('#status');
+    if (start && viz) {
+      start.addEventListener('click', () => {
+        const target = status || viz;
+        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  })();
+</script>
+
 
 <div class="app wrap">
     <header>
