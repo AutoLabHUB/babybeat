@@ -312,49 +312,59 @@ export async function initBabyBeat (opts) {
       setStatus('Listening…');
       isRunning=true;
 
-      // Prepare buffers, tracker, visualiser
-     const floatBuf = new Float32Array(analyser.fftSize); // for peak/EMA
-     const scopeBuf = new Uint8Array(analyser.fftSize);   // for drawing
-      tracker = new BeatTracker();
-      vis = new ECGVis(els.waveform);
+     // Prepare buffers, tracker, visualiser
+const floatBuf = new Float32Array(analyser.fftSize); // for peak/EMA logic
+const scopeBuf  = new Uint8Array(analyser.fftSize);  // for on-screen waveform
+tracker = new BeatTracker();
+vis = new ECGVis(els.waveform);
 
-      // Draw loop
-      const drawLoop = () => {
-        if(!isRunning) return;
+// Draw loop
+const drawLoop = () => {
+  if (!isRunning) return;
 
-        analyser.getFloatTimeDomainData(buf);
-        let peak=0; for(let i=0;i<buf.length;i++){ const v=Math.abs(buf[i]); if(v>peak) peak=v; }
+  // 1) Read analyser data
+  analyser.getFloatTimeDomainData(floatBuf);  // high-precision floats for peak detection
+  let peak = 0;
+  for (let i = 0; i < floatBuf.length; i++) {
+    const v = Math.abs(floatBuf[i]);
+    if (v > peak) peak = v;
+  }
+  analyser.getByteTimeDomainData(scopeBuf);   // bytes for fast oscilloscope drawing
 
-        const sens=parseInt(els.sensitivity.value,10);
-        const threshold = 0.02 * (11 - sens);     // original sensitivity curve
-        ema = SMOOTH(ema, peak, SMOOTHING_ALPHA);
+  // 2) Thresholding / smoothing → level
+  const sens = parseInt(els.sensitivity.value, 10);
+  const threshold = 0.02 * (11 - sens);      // same curve as before
+  ema = SMOOTH(ema, peak, SMOOTHING_ALPHA);
 
-        // Normalize against threshold for detection (0..1)
-        const level = Math.max(0, Math.min(1, (ema - threshold) * 12));
-        const { beat, bpm: lockBpm, hasPattern } = tracker.process(level, performance.now());
+  // Normalize against threshold into 0..1 “level”
+  const level = Math.max(0, Math.min(1, (ema - threshold) * 12));
 
-        // BPM text only after pattern is confirmed
-        if (hasPattern && lockBpm) {
-          bpm = lockBpm;
-          els.bpm.textContent = `${bpm} BPM`;
-        } else {
-          els.bpm.textContent = `-- BPM`;
-        }
+  // 3) Beat tracking
+  const now = performance.now();
+  const { beat, bpm: lockBpm, hasPattern } = tracker.process(level, now);
 
-        // Pulse effect for confirmed beats
-        if (beat && hasPattern) pulse();
+  // 4) UI: BPM shows only when pattern is stable
+  if (hasPattern && lockBpm) {
+    bpm = lockBpm;
+    els.bpm.textContent = `${bpm} BPM`;
+  } else {
+    els.bpm.textContent = `-- BPM`;
+  }
 
-        // Keep your existing vertical waveform motion
-        const y = Math.min(48, Math.max(-48, (ema - threshold) * 600));
-        els.waveform.style.setProperty('--line-y', `calc(-50% + ${y}px)`);
+  // 5) Pulse effect on confirmed beats
+  if (beat && hasPattern) pulse();
 
-        // ECG overlay
-        vis.push(level, beat && hasPattern);
-        vis.render(hasPattern, scopeBuf);
+  // 6) Move the thin gradient baseline (not the canvas layer)
+  const y = Math.min(48, Math.max(-48, (ema - threshold) * 600));
+  els.waveform.style.setProperty('--line-y', `calc(-50% + ${y}px)`);
 
-        drawRAF = requestAnimationFrame(drawLoop);
-      };
-      drawRAF = requestAnimationFrame(drawLoop);
+  // 7) Draw oscilloscope + beat trace
+  vis.push(level, beat && hasPattern);
+  vis.render(hasPattern, scopeBuf);
+
+  drawRAF = requestAnimationFrame(drawLoop);
+};
+drawRAF = requestAnimationFrame(drawLoop);
 
     }catch(e){
       console.error('[start] failed:', e);
