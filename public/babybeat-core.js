@@ -1,27 +1,40 @@
-// public/babybeat-core.js — core logic (enhanced; compatible API)
+// public/babybeat-core.js — core logic (enhanced + robust mic handling)
+// Keeps the same API and wiring as your original:
+//   export async function initBabyBeat(opts)
+//   returns { start, stop, toggleMonitor, startRecording, stopRecording, setFilterHz, setSensitivity, setMonitorVol }
+
 export async function initBabyBeat (opts) {
   const q = (sel) => document.querySelector(sel);
   const els = mapSelectors(opts.elements || {});
   const licenseOk = await (opts.licenseValidator?.() ?? true);
   if (!licenseOk) throw new Error('License check failed');
 
-  // ---------- Tunables (safe defaults) ----------
+  // ---------- Tunables ----------
   const MIN_FETAL_BPM = 100, MAX_FETAL_BPM = 170;
-  const REFRACTORY_MS = 260;             // prevents double-peaks
+  const REFRACTORY_MS = 260;             // avoid double-beats
   const MIN_INTERVAL_MS = 300;           // 200 BPM ceiling
   const MAX_INTERVAL_MS = 1200;          // 50 BPM floor
-  const INTERVAL_TOLERANCE = 0.12;       // ±12% variation allowed
-  const MIN_BEATS_TO_CONFIRM = 4;        // require N consistent beats
+  const INTERVAL_TOLERANCE = 0.12;       // ±12% allowed variation
+  const MIN_BEATS_TO_CONFIRM = 4;        // beats needed to "lock"
   const SMOOTHING_ALPHA = 0.25;          // EMA for amplitude display
-  const ANALYSER_FFT = 1024;             // like your original
+  const ANALYSER_FFT = 1024;
   const ANALYSER_SMOOTHING = 0.85;
 
-  // ---------- Audio + state ----------
+  // ---------- Audio graph state ----------
   let audioCtx, mediaStream, mediaSrc, hp, lp, comp, analyser, monitorGain, procDest, mediaRecorder;
-  let isRunning=false, monitoring=false, recording=false, ema=0, drawRAF=0;
-  let bpm=0;
 
-  // ---------- Beat tracker (minimum-beat + tolerance) ----------
+  // ---------- Runtime state ----------
+  let isRunning=false, monitoring=false, recording=false, ema=0, drawRAF=0;
+  let bpm=0, tracker=null, vis=null;
+
+  // ---------- Helpers ----------
+  function mapSelectors(map){ const o={}; for(const k of Object.keys(map)) o[k]=q(map[k]); return o; }
+  function setStatus(t){ if(els.status) els.status.textContent=t; }
+  function SMOOTH(prev,val,alpha){ return prev + alpha*(val-prev); }
+  function median(arr){ if(!arr.length) return 0; const a=[...arr].sort((x,y)=>x-y); const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
+  function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+  // ---------- Beat tracker (minimum-beat requirement) ----------
   class BeatTracker {
     constructor({
       minBeats = MIN_BEATS_TO_CONFIRM,
@@ -112,7 +125,7 @@ export async function initBabyBeat (opts) {
     }
   }
 
-  // ---------- Visualiser (canvas injected into #waveform) ----------
+  // ---------- ECG-style visualiser injected into #waveform ----------
   class ECGVis {
     constructor(containerEl) {
       this.host = containerEl;
@@ -126,12 +139,10 @@ export async function initBabyBeat (opts) {
       this.host.appendChild(this.canvas);
 
       this.ctx = this.canvas.getContext('2d');
-      this.width = 0;
-      this.height = 0;
+      this.width = 0; this.height = 0;
       this.buffer = new Float32Array(0);
       this.head = 0;
-      this.base = 0;
-      this.scale = 0;
+      this.base = 0; this.scale = 0;
       this.decay = 0.95;
       this.spike = 0;
 
@@ -141,10 +152,8 @@ export async function initBabyBeat (opts) {
         const w = Math.max(200, Math.floor(rect.width * dpr));
         const h = Math.max(100, Math.floor(rect.height * dpr));
         if (w !== this.canvas.width || h !== this.canvas.height) {
-          this.canvas.width = w;
-          this.canvas.height = h;
-          this.width = w;
-          this.height = h;
+          this.canvas.width = w; this.canvas.height = h;
+          this.width = w; this.height = h;
           this.buffer = new Float32Array(this.width).fill(0);
           this.head = 0;
           this.base = this.height * 0.55;
@@ -206,108 +215,122 @@ export async function initBabyBeat (opts) {
     }
   }
 
-  // ---------- Utils ----------
-  function mapSelectors(map){ const o={}; for(const k of Object.keys(map)) o[k]=q(map[k]); return o; }
-  function setStatus(t){ if(els.status) els.status.textContent=t; }
-  function median(arr) {
-    if (!arr.length) return 0;
-    const a = [...arr].sort((x,y)=>x-y);
-    const m = Math.floor(a.length/2);
-    return a.length % 2 ? a[m] : (a[m-1]+a[m])/2;
-  }
-  function SMOOTH(prev,val,alpha){ return prev + alpha*(val-prev); }
-  function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
-
   // ---------- UI wiring (unchanged) ----------
   initUI();
   return { start, stop, toggleMonitor, startRecording, stopRecording, setFilterHz, setSensitivity, setMonitorVol };
 
   function initUI(){
     els.filterFreq.addEventListener('input', ()=>{
-      const hz=parseInt(els.filterFreq.value,10);
-      els.filterValue.textContent=`${hz} Hz`;
-      if(lp) lp.frequency.setTargetAtTime(hz,audioCtx?.currentTime||0,0.01);
+      const hz = parseInt(els.filterFreq.value,10);
+      els.filterValue.textContent = `${hz} Hz`;
+      if(lp) lp.frequency.setTargetAtTime(hz, audioCtx?.currentTime||0, 0.01);
     });
-    els.sensitivity.addEventListener('input', ()=>{ els.sensitivityValue.textContent=els.sensitivity.value; });
-    els.monitorVol.addEventListener('input', ()=>{ els.monitorVolValue.textContent=`${els.monitorVol.value}%`; if(monitorGain) monitorGain.gain.value=parseInt(els.monitorVol.value,10)/100; });
+    els.sensitivity.addEventListener('input', ()=>{ els.sensitivityValue.textContent = els.sensitivity.value; });
+    els.monitorVol.addEventListener('input', ()=>{ els.monitorVolValue.textContent = `${els.monitorVol.value}%`; if(monitorGain) monitorGain.gain.value = parseInt(els.monitorVol.value,10)/100; });
     els.start.addEventListener('click', start); els.stop.addEventListener('click', stop);
     els.monitor.addEventListener('click', toggleMonitor); els.playEnhanced.addEventListener('click', playEnhancedSample);
     els.record.addEventListener('click', ()=> (recording ? stopRecording() : startRecording()));
   }
 
-  // ---------- Start/Stop ----------
-  let vis = null;
-  let tracker = null;
+  // ---------- Mic compatibility helper ----------
+  async function getMicStreamCompat() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      const err = new Error('getUserMedia not supported'); err.name = 'NotSupportedError'; throw err;
+    }
+    const primary = {
+      audio: {
+        echoCancellation: { ideal: false },
+        noiseSuppression: { ideal: false },
+        autoGainControl:   { ideal: false }
+      }
+    };
+    try {
+      return await navigator.mediaDevices.getUserMedia(primary);
+    } catch (e) {
+      // Fallback: simplest constraints
+      return await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
+  }
 
+  // ---------- Start / Stop ----------
   async function start(){
     if(isRunning) return;
+
     try{
-      mediaStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-      audioCtx=new (window.AudioContext||window.webkitAudioContext)({ sampleRate:48000 });
-      mediaSrc=audioCtx.createMediaStreamSource(mediaStream);
+      setStatus('Requesting microphone…');
 
-      // Filters & dynamics (as before)
-      hp=audioCtx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=10;
-      lp=audioCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=parseInt(els.filterFreq.value,10)||60;
-      comp=audioCtx.createDynamicsCompressor(); comp.threshold.value=-28; comp.knee.value=20; comp.ratio.value=6; comp.attack.value=0.003; comp.release.value=0.25;
+      // 1) Acquire mic with compatible constraints (+fallback)
+      mediaStream = await getMicStreamCompat();
 
-      analyser=audioCtx.createAnalyser();
+      // 2) AudioContext without forcing sampleRate (fixes Safari/iOS issues)
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new Ctx();
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+      // 3) Build graph
+      mediaSrc = audioCtx.createMediaStreamSource(mediaStream);
+
+      hp = audioCtx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=10;
+      lp = audioCtx.createBiquadFilter(); lp.type='lowpass';  lp.frequency.value=parseInt(els.filterFreq.value,10)||60;
+
+      comp = audioCtx.createDynamicsCompressor();
+      comp.threshold.value=-28; comp.knee.value=20; comp.ratio.value=6; comp.attack.value=0.003; comp.release.value=0.25;
+
+      analyser = audioCtx.createAnalyser();
       analyser.fftSize = ANALYSER_FFT;
       analyser.smoothingTimeConstant = ANALYSER_SMOOTHING;
 
-      monitorGain=audioCtx.createGain(); monitorGain.gain.value=parseInt(els.monitorVol.value,10)/100;
-      procDest=audioCtx.createMediaStreamDestination();
+      monitorGain = audioCtx.createGain();
+      monitorGain.gain.value = parseInt(els.monitorVol.value,10)/100;
 
-      // graph
+      procDest = audioCtx.createMediaStreamDestination();
+
       mediaSrc.connect(hp).connect(lp).connect(comp);
       comp.connect(analyser);
       comp.connect(procDest);
       comp.connect(monitorGain).connect(audioCtx.destination);
 
       // UI enable
-      els.start.disabled=true; els.stop.disabled=false; els.monitor.disabled=false; els.playEnhanced.disabled=false; els.record.disabled=false; setStatus('Listening…');
+      els.start.disabled=true; els.stop.disabled=false; els.monitor.disabled=false; els.playEnhanced.disabled=false; els.record.disabled=false;
+      setStatus('Listening…');
       isRunning=true;
 
-      // Prepare buffers & helpers
-      const buf=new Float32Array(analyser.fftSize);
+      // Prepare buffers, tracker, visualiser
+      const buf = new Float32Array(analyser.fftSize);
       tracker = new BeatTracker();
       vis = new ECGVis(els.waveform);
 
-      // draw loop
+      // Draw loop
       const drawLoop = () => {
         if(!isRunning) return;
 
-        // amplitude / level
         analyser.getFloatTimeDomainData(buf);
-        let peak = 0;
-        for (let i=0;i<buf.length;i++){ const v=Math.abs(buf[i]); if(v>peak) peak=v; }
+        let peak=0; for(let i=0;i<buf.length;i++){ const v=Math.abs(buf[i]); if(v>peak) peak=v; }
 
-        const sens = parseInt(els.sensitivity.value,10);
-        const threshold = 0.02 * (11 - sens);       // your original threshold curve
+        const sens=parseInt(els.sensitivity.value,10);
+        const threshold = 0.02 * (11 - sens);     // original sensitivity curve
         ema = SMOOTH(ema, peak, SMOOTHING_ALPHA);
 
-        // Beat tracking against dynamic threshold:
-        // Convert EMA vs threshold -> normalized level 0..1 for detection
-        const level = Math.max(0, Math.min(1, (ema - threshold) * 12)); // scale a bit for sensitivity
-        const { beat, bpm: lockBpm, hasPattern, confidence } = tracker.process(level, performance.now());
+        // Normalize against threshold for detection (0..1)
+        const level = Math.max(0, Math.min(1, (ema - threshold) * 12));
+        const { beat, bpm: lockBpm, hasPattern } = tracker.process(level, performance.now());
 
-        // Only show BPM after pattern is confirmed
+        // BPM text only after pattern is confirmed
         if (hasPattern && lockBpm) {
           bpm = lockBpm;
           els.bpm.textContent = `${bpm} BPM`;
         } else {
-          const need = Math.max(0, tracker.minBeats - 1 - tracker.intervals.length);
-          els.bpm.textContent = need > 0 ? `-- BPM` : `-- BPM`;
+          els.bpm.textContent = `-- BPM`;
         }
 
-        // Pulse effect on confirmed beats (kept from your original)
+        // Pulse effect for confirmed beats
         if (beat && hasPattern) pulse();
 
-        // Move the existing waveform block subtly (visual feedback)
+        // Keep your existing vertical waveform motion
         const y = Math.min(48, Math.max(-48, (ema - threshold) * 600));
         els.waveform.style.transform = `translateY(calc(-50% + ${y}px))`;
 
-        // Render ECG canvas inside #waveform
+        // ECG overlay
         vis.push(level, beat && hasPattern);
         vis.render(hasPattern);
 
@@ -316,8 +339,20 @@ export async function initBabyBeat (opts) {
       drawRAF = requestAnimationFrame(drawLoop);
 
     }catch(e){
-      console.error(e);
-      setStatus('Mic permission denied or unavailable.');
+      console.error('[start] failed:', e);
+      // More accurate hints than “Mic permission denied…”
+      const httpsHint = (!window.isSecureContext || location.protocol !== 'https:') ? ' • Use HTTPS or localhost' : '';
+      const originHint = (location.hostname.endsWith('.vercel.app') ? '' : ' • Grant permission for this domain in browser settings');
+      const nice = ({
+        NotAllowedError:  'Microphone access was blocked by the browser',
+        NotFoundError:    'No microphone was found',
+        NotReadableError: 'Microphone is busy or not accessible by the system',
+        OverconstrainedError: 'Requested audio constraints are not supported by this device',
+        SecurityError:    'Microphone blocked due to security settings',
+        AbortError:       'Microphone request was aborted',
+        TypeError:        'Invalid media constraints'
+      })[e.name] || 'Audio initialization failed';
+      setStatus(`${nice}.${httpsHint}${originHint}`);
     }
   }
 
@@ -329,8 +364,8 @@ export async function initBabyBeat (opts) {
     if (vis) { vis.destroy(); vis = null; }
 
     els.bpm.textContent='-- BPM';
-    try{mediaStream?.getTracks().forEach(t=>t.stop())}catch{}
-    try{audioCtx?.close()}catch{}
+    try{ mediaStream?.getTracks().forEach(t=>t.stop()); }catch{}
+    try{ audioCtx?.close(); }catch{}
 
     monitoring=false; if(els.monitor) els.monitor.textContent='Monitor: Off';
     els.start.disabled=false; els.stop.disabled=true;
@@ -340,31 +375,37 @@ export async function initBabyBeat (opts) {
 
   // ---------- Monitor / Recording / Controls (unchanged API) ----------
   function toggleMonitor(){ if(!audioCtx) return; monitoring=!monitoring;
-    monitorGain.gain.value=monitoring?(parseInt(els.monitorVol.value,10)/100):0; els.monitor.textContent=`Monitor: ${monitoring?'On':'Off'}`; }
+    monitorGain.gain.value = monitoring ? (parseInt(els.monitorVol.value,10)/100) : 0;
+    els.monitor.textContent = `Monitor: ${monitoring?'On':'Off'}`;
+  }
 
   async function playEnhancedSample(){ if(!audioCtx) return; const tmp=audioCtx.createGain(); tmp.gain.value=0.9; comp.connect(tmp).connect(audioCtx.destination); await wait(1800); tmp.disconnect(); }
 
   async function startRecording(){
     if(!procDest) return;
-    mediaRecorder=new MediaRecorder(procDest.stream,{mimeType:'audio/webm;codecs=opus'});
+    mediaRecorder = new MediaRecorder(procDest.stream,{ mimeType:'audio/webm;codecs=opus' });
     const chunks=[];
-    mediaRecorder.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
-    mediaRecorder.onstop=()=>{ const blob=new Blob(chunks,{type:'audio/webm'}); const url=URL.createObjectURL(blob); els.playbackAudio.src=url; els.downloadLink.href=url; els.playbackArea.style.display='block'; };
+    mediaRecorder.ondataavailable = e => { if(e.data.size) chunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob=new Blob(chunks,{type:'audio/webm'});
+      const url=URL.createObjectURL(blob);
+      els.playbackAudio.src=url; els.downloadLink.href=url; els.playbackArea.style.display='block';
+    };
     mediaRecorder.start(); recording=true; els.record.textContent='Stop Recording';
   }
+
   function stopRecording(){ if(!recording) return; mediaRecorder?.stop(); recording=false; els.record.textContent='Start Recording'; }
 
-  function setFilterHz(hz){ if(lp) lp.frequency.value=hz; }
+  function setFilterHz(hz){ if(lp) lp.frequency.value = hz; }
   function setSensitivity(v){ els.sensitivity.value=String(v); els.sensitivityValue.textContent=String(v); }
   function setMonitorVol(pct){ if(monitorGain) monitorGain.gain.value=pct/100; els.monitorVol.value=String(pct); els.monitorVolValue.textContent=`${pct}%`; }
 
-  // ---------- Small visual pulse (kept) ----------
+  // ---------- Visual pulse (kept) ----------
   function pulse(){
     if(!els.pulse) return;
     els.pulse.style.animation='none'; void els.pulse.offsetWidth; els.pulse.style.animation='heartbeat .6s ease';
     const s=document.createElement('style');
     s.textContent='@keyframes heartbeat{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.8}50%{transform:translate(-50%,-50%) scale(1.3);opacity:1}}';
-    document.head.appendChild(s);
-    setTimeout(()=>s.remove(),700);
+    document.head.appendChild(s); setTimeout(()=>s.remove(),700);
   }
 }
