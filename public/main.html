@@ -224,6 +224,18 @@
     </style>
 </head>
 <body>
+    <script>
+  (async () => {
+    try {
+      const r = await fetch('/api/verify-admin', { credentials: 'include' });
+      if (!r.ok) throw new Error('not authed');
+    } catch {
+      // Not logged in → send back to landing
+      window.location.replace('/');
+    }
+  })();
+</script>
+
 <div class="app wrap">
     <header>
         <div class="title">Baby Beat Detector</div>
