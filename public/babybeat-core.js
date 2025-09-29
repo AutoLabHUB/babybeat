@@ -181,9 +181,9 @@ export async function initBabyBeat (opts) {
       }
     }
 
-   render(locked, scope) {
-  const { ctx, width, height, buffer, head, base, scale } = this;
-  if (!width || !height) return;
+  render(locked, scope, gain = 1) {
+  const { ctx, width, height, base, scale } = this;
+  if (!width || !height || !scope || !scope.length) return;
   ctx.clearRect(0, 0, width, height);
 
   // grid
@@ -196,22 +196,65 @@ export async function initBabyBeat (opts) {
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // (1) Actual audio waveform (time-domain scope)
-  if (scope && scope.length) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = 1.25;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    const step = width / scope.length;
-    ctx.beginPath();
-    for (let i = 0; i < scope.length; i++) {
-      const v = (scope[i] - 128) / 128;     // -1..1
-      const x = i * step;
-      const y = base + (-v) * (scale * 0.9); // invert so loudness goes up
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
+  // --- build downsampled, smoothed points ---
+  const targetPts = Math.min(240, Math.floor(width));           // ~smooth but detailed
+  const stepIn    = Math.max(1, Math.floor(scope.length / targetPts));
+  const g         = Math.max(0.8, Math.min(6, gain));           // visual-only gain
+  const amp       = scale * 0.9 * g;
+
+  const pts = [];
+  for (let i = 0, x = 0; i < scope.length; i += stepIn, x += (width / targetPts)) {
+    const s = scope[i];                         // 0..255
+    const v = (s - 128) / 128;                 // -1..1
+    pts.push({ x, y: base + (-v) * amp });
   }
+
+  // simple moving-average smooth (3-tap)
+  for (let i = 1; i < pts.length - 1; i++) {
+    pts[i].y = (pts[i-1].y + pts[i].y + pts[i+1].y) / 3;
+  }
+
+  // --- draw a single smooth Catmull-Rom curve with gradient stroke ---
+  const grad = ctx.createLinearGradient(0, 0, width, 0);
+  grad.addColorStop(0.00, '#ff7a3d');  // orange
+  grad.addColorStop(0.65, '#ffb03d');  // warm
+  grad.addColorStop(1.00, '#e6ff00');  // yellow
+
+  ctx.lineJoin = 'round';
+  ctx.lineCap  = 'round';
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 3;
+
+  // subtle glow when locked (same line, no second stroke)
+  if (locked) {
+    ctx.shadowColor = 'rgba(230,255,0,0.55)';
+    ctx.shadowBlur  = 10;
+  } else {
+    ctx.shadowBlur = 0;
+  }
+
+  // Catmull-Rom → Bezier
+  const tension = 0.5;
+  ctx.beginPath();
+  if (pts.length) ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1] || pts[i];
+    const p3 = pts[i + 2] || p2;
+
+    const cp1x = p1.x + (p2.x - p0.x) * (tension / 6);
+    const cp1y = p1.y + (p2.y - p0.y) * (tension / 6);
+    const cp2x = p2.x - (p3.x - p1.x) * (tension / 6);
+    const cp2y = p2.y - (p3.y - p1.y) * (tension / 6);
+
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
+  ctx.stroke();
+
+  // reset glow for next frame
+  ctx.shadowBlur = 0;
+}
 
   // (2) Beat trace overlay (green when pattern found)
   ctx.strokeStyle = locked ? '#16a34a' : '#64748b';
