@@ -7,6 +7,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
+  const missing = ["STRIPE_SECRET_KEY", "STRIPE_PRICE_ID"].filter(
+    (k) => !process.env[k]
+  );
+  if (missing.length) {
+    return res
+      .status(500)
+      .json({ error: `Missing env var(s): ${missing.join(", ")}` });
+  }
+
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: "2024-06-20",
@@ -21,7 +30,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ id: session.id });
   } catch (err) {
-    console.error("[checkout] create failed:", err);
-    return res.status(500).json({ error: "Internal Server Error" });
+    // Surface enough detail to debug (without secrets)
+    const code = err?.code || err?.type || "server_error";
+    const message = err?.message || "Internal Server Error";
+    console.error("[checkout] failed:", code, message);
+    const status = code === "resource_missing" || code === "invalid_request_error" ? 400 : 500;
+    return res.status(status).json({ error: message, code });
   }
 }
