@@ -217,14 +217,13 @@
         }
 
         /* Layout */
-        @media (max-width: 599px) {
-          
-  .area-viz{ order: 0; }
-  .area-controls{ order: 1; }
-  .area-cta{ order: 2; }
-  .area-audio{ order: 3; }
-            .grid-detector { display: flex; flex-direction: column; gap: var(--space); }
-        }
+       @media (max-width: 599px){
+  .area-viz{ order: 0; }      /* visualiser first */
+  .area-controls{ order: 1; } /* mic + status live here */
+  .area-cta{ order: 2; }      /* start/stop buttons */
+  .area-audio{ order: 3; }    /* playback last */
+}
+
         @media (min-width: 600px) and (max-width: 1023px) {
             .grid-detector { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space); }
             .area-cta, .area-audio { grid-column: span 2; }
