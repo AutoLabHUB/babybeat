@@ -160,90 +160,87 @@ export async function initBabyBeat (opts) {
       this._onResize = onResize;
     }
 
-    render(locked, scope, gain = 1) {
-      const { ctx, width, height, base, scale } = this;
-      if (!width || !height || !scope || !scope.length) return;
-      ctx.clearRect(0, 0, width, height);
+render(locked, scope, gain = 1) {
+  const { ctx, width, height, base, scale } = this;
+  if (!width || !height || !scope || !scope.length) return;
+  ctx.clearRect(0, 0, width, height);
 
-      // grid
-      ctx.globalAlpha = 0.18;
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = 0; x < width; x += 35) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, height); }
-      for (let y = 0; y < height; y += 35) { ctx.moveTo(0, y + 0.5); ctx.lineTo(width, y + 0.5); }
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+  // grid
+  ctx.globalAlpha = 0.18;
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x < width; x += 35) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, height); }
+  for (let y = 0; y < height; y += 35) { ctx.moveTo(0, y + 0.5); ctx.lineTo(width, y + 0.5); }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
 
-      // downsample + smooth
-      const targetPts = Math.min(240, Math.floor(width));
-      const stepIn    = Math.max(1, Math.floor(scope.length / targetPts));
-      const g         = Math.max(0.8, Math.min(6, gain));   // visual-only gain
-      const amp       = scale * 0.9 * g;
+  // downsample + build points
+  const targetPts = Math.min(240, Math.floor(width));
+  const stepIn    = Math.max(1, Math.floor(scope.length / targetPts));
+  const g         = Math.max(0.8, Math.min(6, gain));  // visual-only gain
+  const amp       = scale * 0.9 * g;
 
-      const pts = [];
-      for (let i = 0, x = 0; i < scope.length; i += stepIn, x += (width / targetPts)) {
-        const s = scope[i];                     // 0..255
-        const v = (s - 128) / 128;              // -1..1
-        pts.push({ x, y: base + (-v) * amp });
-      }
-      // moving-average smooth (5-tap) for a calmer shape
-for (let i = 2; i < pts.length - 2; i++) {
-  pts[i].y = (pts[i-2].y + pts[i-1].y + pts[i].y + pts[i+1].y + pts[i+2].y) / 5;
-}
-
-// blend with previous frame for temporal stability
-if (this._prev && this._prev.length === pts.length) {
-  // 80% previous frame + 20% new frame → much steadier
-  for (let i = 0; i < pts.length; i++) {
-    pts[i].y = this._prev[i].y * 0.8 + pts[i].y * 0.2;
+  const pts = [];
+  for (let i = 0, x = 0; i < scope.length; i += stepIn, x += (width / targetPts)) {
+    const s = scope[i];                 // 0..255
+    const v = (s - 128) / 128;          // -1..1
+    pts.push({ x, y: base + (-v) * amp });
   }
-}
-// store current frame as “previous” for next time
-this._prev = pts.map(p => ({ x: p.x, y: p.y }));
 
-      }
+  // smoother line (5-tap)
+  for (let i = 2; i < pts.length - 2; i++) {
+    pts[i].y = (pts[i-2].y + pts[i-1].y + pts[i].y + pts[i+1].y + pts[i+2].y) / 5;
+  }
 
-      // gradient stroke
-      const grad = ctx.createLinearGradient(0, 0, width, 0);
-      grad.addColorStop(0.00, '#ff7a3d');  // orange
-      grad.addColorStop(0.65, '#ffb03d');  // warm
-      grad.addColorStop(1.00, '#e6ff00');  // yellow
-
-      ctx.lineJoin = 'round';
-      ctx.lineCap  = 'round';
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = 3;
-
-      // subtle glow when locked
-      if (locked) {
-        ctx.shadowColor = 'rgba(230,255,0,0.55)';
-        ctx.shadowBlur  = 10;
-      } else {
-        ctx.shadowBlur = 0;
-      }
-
-      // Catmull-Rom → Bezier curve
-      const tension = 0.5;
-      ctx.beginPath();
-      if (pts.length) ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 0; i < pts.length - 1; i++) {
-        const p0 = pts[i - 1] || pts[i];
-        const p1 = pts[i];
-        const p2 = pts[i + 1] || pts[i];
-        const p3 = pts[i + 2] || p2;
-
-        const cp1x = p1.x + (p2.x - p0.x) * (tension / 6);
-        const cp1y = p1.y + (p2.y - p0.y) * (tension / 6);
-        const cp2x = p2.x - (p3.x - p1.x) * (tension / 6);
-        const cp2y = p2.y - (p3.y - p1.y) * (tension / 6);
-
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-      }
-      ctx.stroke();
-
-      ctx.shadowBlur = 0; // reset
+  // temporal blend with previous frame
+  if (this._prev && this._prev.length === pts.length) {
+    for (let i = 0; i < pts.length; i++) {
+      pts[i].y = this._prev[i].y * 0.8 + pts[i].y * 0.2; // steadier
     }
+  }
+  this._prev = pts.map(p => ({ x: p.x, y: p.y }));
+
+  // gradient stroke
+  const grad = ctx.createLinearGradient(0, 0, width, 0);
+  grad.addColorStop(0.00, '#ff7a3d');
+  grad.addColorStop(0.65, '#ffb03d');
+  grad.addColorStop(1.00, '#e6ff00');
+
+  ctx.lineJoin = 'round';
+  ctx.lineCap  = 'round';
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 3;
+
+  // glow when locked
+  if (locked) {
+    ctx.shadowColor = 'rgba(230,255,0,0.55)';
+    ctx.shadowBlur  = 10;
+  } else {
+    ctx.shadowBlur = 0;
+  }
+
+  // Catmull-Rom → Bezier
+  const tension = 0.5;
+  ctx.beginPath();
+  if (pts.length) ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1] || pts[i];
+    const p3 = pts[i + 2] || p2;
+
+    const cp1x = p1.x + (p2.x - p0.x) * (tension / 6);
+    const cp1y = p1.y + (p2.y - p0.y) * (tension / 6);
+    const cp2x = p2.x - (p3.x - p1.x) * (tension / 6);
+    const cp2y = p2.y - (p3.y - p1.y) * (tension / 6);
+
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
+  ctx.stroke();
+
+  ctx.shadowBlur = 0; // reset
+}
 
     destroy() {
       window.removeEventListener('resize', this._onResize);
