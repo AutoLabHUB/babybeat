@@ -1,5 +1,5 @@
 // public/babybeat-core.js — core logic (enhanced + robust mic handling)
-// Keeps the same API and wiring as your original:
+// API stays the same:
 //   export async function initBabyBeat(opts)
 //   returns { start, stop, toggleMonitor, startRecording, stopRecording, setFilterHz, setSensitivity, setMonitorVol }
 
@@ -125,7 +125,7 @@ export async function initBabyBeat (opts) {
     }
   }
 
-  // ---------- ECG-style visualiser injected into #waveform ----------
+  // ---------- Single-line gradient visualiser injected into #waveform ----------
   class ECGVis {
     constructor(containerEl) {
       this.host = containerEl;
@@ -140,11 +140,7 @@ export async function initBabyBeat (opts) {
 
       this.ctx = this.canvas.getContext('2d');
       this.width = 0; this.height = 0;
-      this.buffer = new Float32Array(0);
-      this.head = 0;
       this.base = 0; this.scale = 0;
-      this.decay = 0.95;
-      this.spike = 0;
 
       const onResize = () => {
         const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
@@ -154,8 +150,6 @@ export async function initBabyBeat (opts) {
         if (w !== this.canvas.width || h !== this.canvas.height) {
           this.canvas.width = w; this.canvas.height = h;
           this.width = w; this.height = h;
-          this.buffer = new Float32Array(this.width).fill(0);
-          this.head = 0;
           this.base = this.height * 0.55;
           this.scale = this.height * 0.35;
         }
@@ -165,109 +159,77 @@ export async function initBabyBeat (opts) {
       this._onResize = onResize;
     }
 
-    push(level, beat) {
-      const t = performance.now() * 0.004;
-      let y = Math.sin(t) * 0.03;
-      y += level * 0.15;
-      if (beat) this.spike = 1.0;
-      if (this.spike > 0) {
-        y += this.spike * 0.9;
-        this.spike *= this.decay;
-        if (this.spike < 0.01) this.spike = 0;
+    render(locked, scope, gain = 1) {
+      const { ctx, width, height, base, scale } = this;
+      if (!width || !height || !scope || !scope.length) return;
+      ctx.clearRect(0, 0, width, height);
+
+      // grid
+      ctx.globalAlpha = 0.18;
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = 0; x < width; x += 35) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, height); }
+      for (let y = 0; y < height; y += 35) { ctx.moveTo(0, y + 0.5); ctx.lineTo(width, y + 0.5); }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // downsample + smooth
+      const targetPts = Math.min(240, Math.floor(width));
+      const stepIn    = Math.max(1, Math.floor(scope.length / targetPts));
+      const g         = Math.max(0.8, Math.min(6, gain));   // visual-only gain
+      const amp       = scale * 0.9 * g;
+
+      const pts = [];
+      for (let i = 0, x = 0; i < scope.length; i += stepIn, x += (width / targetPts)) {
+        const s = scope[i];                     // 0..255
+        const v = (s - 128) / 128;              // -1..1
+        pts.push({ x, y: base + (-v) * amp });
       }
-      if (this.buffer.length) {
-        this.buffer[this.head] = y;
-        this.head = (this.head + 1) % this.buffer.length;
+      for (let i = 1; i < pts.length - 1; i++) {
+        pts[i].y = (pts[i-1].y + pts[i].y + pts[i+1].y) / 3;
       }
+
+      // gradient stroke
+      const grad = ctx.createLinearGradient(0, 0, width, 0);
+      grad.addColorStop(0.00, '#ff7a3d');  // orange
+      grad.addColorStop(0.65, '#ffb03d');  // warm
+      grad.addColorStop(1.00, '#e6ff00');  // yellow
+
+      ctx.lineJoin = 'round';
+      ctx.lineCap  = 'round';
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 3;
+
+      // subtle glow when locked
+      if (locked) {
+        ctx.shadowColor = 'rgba(230,255,0,0.55)';
+        ctx.shadowBlur  = 10;
+      } else {
+        ctx.shadowBlur = 0;
+      }
+
+      // Catmull-Rom → Bezier curve
+      const tension = 0.5;
+      ctx.beginPath();
+      if (pts.length) ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[i - 1] || pts[i];
+        const p1 = pts[i];
+        const p2 = pts[i + 1] || pts[i];
+        const p3 = pts[i + 2] || p2;
+
+        const cp1x = p1.x + (p2.x - p0.x) * (tension / 6);
+        const cp1y = p1.y + (p2.y - p0.y) * (tension / 6);
+        const cp2x = p2.x - (p3.x - p1.x) * (tension / 6);
+        const cp2y = p2.y - (p3.y - p1.y) * (tension / 6);
+
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+      }
+      ctx.stroke();
+
+      ctx.shadowBlur = 0; // reset
     }
-
-  render(locked, scope, gain = 1) {
-  const { ctx, width, height, base, scale } = this;
-  if (!width || !height || !scope || !scope.length) return;
-  ctx.clearRect(0, 0, width, height);
-
-  // grid
-  ctx.globalAlpha = 0.18;
-  ctx.strokeStyle = '#94a3b8';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = 0; x < width; x += 35) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, height); }
-  for (let y = 0; y < height; y += 35) { ctx.moveTo(0, y + 0.5); ctx.lineTo(width, y + 0.5); }
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  // --- build downsampled, smoothed points ---
-  const targetPts = Math.min(240, Math.floor(width));           // ~smooth but detailed
-  const stepIn    = Math.max(1, Math.floor(scope.length / targetPts));
-  const g         = Math.max(0.8, Math.min(6, gain));           // visual-only gain
-  const amp       = scale * 0.9 * g;
-
-  const pts = [];
-  for (let i = 0, x = 0; i < scope.length; i += stepIn, x += (width / targetPts)) {
-    const s = scope[i];                         // 0..255
-    const v = (s - 128) / 128;                 // -1..1
-    pts.push({ x, y: base + (-v) * amp });
-  }
-
-  // simple moving-average smooth (3-tap)
-  for (let i = 1; i < pts.length - 1; i++) {
-    pts[i].y = (pts[i-1].y + pts[i].y + pts[i+1].y) / 3;
-  }
-
-  // --- draw a single smooth Catmull-Rom curve with gradient stroke ---
-  const grad = ctx.createLinearGradient(0, 0, width, 0);
-  grad.addColorStop(0.00, '#ff7a3d');  // orange
-  grad.addColorStop(0.65, '#ffb03d');  // warm
-  grad.addColorStop(1.00, '#e6ff00');  // yellow
-
-  ctx.lineJoin = 'round';
-  ctx.lineCap  = 'round';
-  ctx.strokeStyle = grad;
-  ctx.lineWidth = 3;
-
-  // subtle glow when locked (same line, no second stroke)
-  if (locked) {
-    ctx.shadowColor = 'rgba(230,255,0,0.55)';
-    ctx.shadowBlur  = 10;
-  } else {
-    ctx.shadowBlur = 0;
-  }
-
-  // Catmull-Rom → Bezier
-  const tension = 0.5;
-  ctx.beginPath();
-  if (pts.length) ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] || pts[i];
-    const p1 = pts[i];
-    const p2 = pts[i + 1] || pts[i];
-    const p3 = pts[i + 2] || p2;
-
-    const cp1x = p1.x + (p2.x - p0.x) * (tension / 6);
-    const cp1y = p1.y + (p2.y - p0.y) * (tension / 6);
-    const cp2x = p2.x - (p3.x - p1.x) * (tension / 6);
-    const cp2y = p2.y - (p3.y - p1.y) * (tension / 6);
-
-    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-  }
-  ctx.stroke();
-
-  // reset glow for next frame
-  ctx.shadowBlur = 0;
-}
-
-  // (2) Beat trace overlay (green when pattern found)
-  ctx.strokeStyle = locked ? '#16a34a' : '#64748b';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let i = 0; i < buffer.length; i++) {
-    const idx = (head + i) % buffer.length;
-    const x = i;
-    const y = base - buffer[idx] * scale;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-}
 
     destroy() {
       window.removeEventListener('resize', this._onResize);
@@ -275,21 +237,21 @@ export async function initBabyBeat (opts) {
     }
   }
 
-  // ---------- UI wiring (unchanged) ----------
+  // ---------- UI wiring ----------
   initUI();
   return { start, stop, toggleMonitor, startRecording, stopRecording, setFilterHz, setSensitivity, setMonitorVol };
 
   function initUI(){
-    els.filterFreq.addEventListener('input', ()=>{
+    els.filterFreq?.addEventListener('input', ()=>{
       const hz = parseInt(els.filterFreq.value,10);
       els.filterValue.textContent = `${hz} Hz`;
       if(lp) lp.frequency.setTargetAtTime(hz, audioCtx?.currentTime||0, 0.01);
     });
-    els.sensitivity.addEventListener('input', ()=>{ els.sensitivityValue.textContent = els.sensitivity.value; });
-    els.monitorVol.addEventListener('input', ()=>{ els.monitorVolValue.textContent = `${els.monitorVol.value}%`; if(monitorGain) monitorGain.gain.value = parseInt(els.monitorVol.value,10)/100; });
-    els.start.addEventListener('click', start); els.stop.addEventListener('click', stop);
-    els.monitor.addEventListener('click', toggleMonitor); els.playEnhanced.addEventListener('click', playEnhancedSample);
-    els.record.addEventListener('click', ()=> (recording ? stopRecording() : startRecording()));
+    els.sensitivity?.addEventListener('input', ()=>{ els.sensitivityValue.textContent = els.sensitivity.value; });
+    els.monitorVol?.addEventListener('input', ()=>{ els.monitorVolValue.textContent = `${els.monitorVol.value}%`; if(monitorGain) monitorGain.gain.value = parseInt(els.monitorVol.value,10)/100; });
+    els.start?.addEventListener('click', start); els.stop?.addEventListener('click', stop);
+    els.monitor?.addEventListener('click', toggleMonitor); els.playEnhanced?.addEventListener('click', playEnhancedSample);
+    els.record?.addEventListener('click', ()=> (recording ? stopRecording() : startRecording()));
   }
 
   // ---------- Mic compatibility helper ----------
@@ -355,64 +317,63 @@ export async function initBabyBeat (opts) {
       setStatus('Listening…');
       isRunning=true;
 
-     // Prepare buffers, tracker, visualiser
-const floatBuf = new Float32Array(analyser.fftSize); // for peak/EMA logic
-const scopeBuf  = new Uint8Array(analyser.fftSize);  // for on-screen waveform
-tracker = new BeatTracker();
-vis = new ECGVis(els.waveform);
+      // Prepare buffers, tracker, visualiser
+      const floatBuf = new Float32Array(analyser.fftSize); // for peak/EMA logic
+      const scopeBuf  = new Uint8Array(analyser.fftSize);  // for on-screen waveform
+      tracker = new BeatTracker();
+      vis = new ECGVis(els.waveform);
 
-// Draw loop
-const drawLoop = () => {
-  if (!isRunning) return;
+      let scopeGain = 1; // visual-only gain
 
-  // 1) Read analyser data
-analyser.getFloatTimeDomainData(floatBuf);
-let peak = 0;
-for (let i = 0; i < floatBuf.length; i++) {
-  const v = Math.abs(floatBuf[i]);
-  if (v > peak) peak = v;
-}
-analyser.getByteTimeDomainData(scopeBuf);
+      // Draw loop
+      const drawLoop = () => {
+        if (!isRunning) return;
 
+        // 1) Read analyser data
+        analyser.getFloatTimeDomainData(floatBuf);
+        let peak = 0;
+        for (let i = 0; i < floatBuf.length; i++) {
+          const v = Math.abs(floatBuf[i]);
+          if (v > peak) peak = v;
+        }
+        analyser.getByteTimeDomainData(scopeBuf);
 
-  // 2) Thresholding / smoothing → level
-  const sens = parseInt(els.sensitivity.value, 10);
-  const threshold = 0.02 * (11 - sens);      // same curve as before
-  ema = SMOOTH(ema, peak, SMOOTHING_ALPHA);
+        // 2) Thresholding / smoothing → level
+        const sens = parseInt(els.sensitivity.value, 10);
+        const threshold = 0.02 * (11 - sens);
+        ema = SMOOTH(ema, peak, SMOOTHING_ALPHA);
 
-  // Normalize against threshold into 0..1 “level”
-  const level = Math.max(0, Math.min(1, (ema - threshold) * 12));
+        // Normalize against threshold into 0..1 “level”
+        const level = Math.max(0, Math.min(1, (ema - threshold) * 12));
 
-  // 3) Beat tracking
-  const now = performance.now();
-  const { beat, bpm: lockBpm, hasPattern } = tracker.process(level, now);
+        // 3) Beat tracking
+        const now = performance.now();
+        const { beat, bpm: lockBpm, hasPattern } = tracker.process(level, now);
 
-  // 4) UI: BPM shows only when pattern is stable
-  if (hasPattern && lockBpm) {
-    bpm = lockBpm;
-    els.bpm.textContent = `${bpm} BPM`;
-  } else {
-    els.bpm.textContent = `-- BPM`;
-  }
+        // 4) UI: BPM shows only when pattern is stable
+        if (hasPattern && lockBpm) {
+          bpm = lockBpm;
+          els.bpm.textContent = `${bpm} BPM`;
+        } else {
+          els.bpm.textContent = `-- BPM`;
+        }
 
-  // 5) Pulse effect on confirmed beats
-  if (beat && hasPattern) pulse();
+        // 5) Pulse effect on confirmed beats
+        if (beat && hasPattern) pulse();
 
-  // 6) Move the thin gradient baseline (not the canvas layer)
-  const y = Math.min(48, Math.max(-48, (ema - threshold) * 600));
-  els.waveform.style.setProperty('--line-y', `calc(-50% + ${y}px)`);
+        // 6) Auto visual gain (clear waveform even when quiet)
+        const targetGain = Math.min(6, Math.max(0.9, 0.9 / Math.max(peak, 0.02)));
+        scopeGain = SMOOTH(scopeGain, targetGain, 0.12);
 
-  // 7) Draw oscilloscope + beat trace
-  vis.push(level, beat && hasPattern);
- vis.render(hasPattern, scopeBuf, scopeGain);
+        // 7) Draw single gradient waveform (+glow when locked)
+        vis.render(hasPattern, scopeBuf, scopeGain);
 
-  drawRAF = requestAnimationFrame(drawLoop);
-};
-drawRAF = requestAnimationFrame(drawLoop);
+        drawRAF = requestAnimationFrame(drawLoop);
+      };
+      drawRAF = requestAnimationFrame(drawLoop);
 
     }catch(e){
       console.error('[start] failed:', e);
-      // More accurate hints than “Mic permission denied…”
       const httpsHint = (!window.isSecureContext || location.protocol !== 'https:') ? ' • Use HTTPS or localhost' : '';
       const originHint = (location.hostname.endsWith('.vercel.app') ? '' : ' • Grant permission for this domain in browser settings');
       const nice = ({
@@ -445,7 +406,7 @@ drawRAF = requestAnimationFrame(drawLoop);
     setStatus('Stopped.');
   }
 
-  // ---------- Monitor / Recording / Controls (unchanged API) ----------
+  // ---------- Monitor / Recording / Controls ----------
   function toggleMonitor(){ if(!audioCtx) return; monitoring=!monitoring;
     monitorGain.gain.value = monitoring ? (parseInt(els.monitorVol.value,10)/100) : 0;
     els.monitor.textContent = `Monitor: ${monitoring?'On':'Off'}`;
@@ -472,7 +433,7 @@ drawRAF = requestAnimationFrame(drawLoop);
   function setSensitivity(v){ els.sensitivity.value=String(v); els.sensitivityValue.textContent=String(v); }
   function setMonitorVol(pct){ if(monitorGain) monitorGain.gain.value=pct/100; els.monitorVol.value=String(pct); els.monitorVolValue.textContent=`${pct}%`; }
 
-  // ---------- Visual pulse (kept) ----------
+  // ---------- Visual pulse ----------
   function pulse(){
     if(!els.pulse) return;
     els.pulse.style.animation='none'; void els.pulse.offsetWidth; els.pulse.style.animation='heartbeat .6s ease';
