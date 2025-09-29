@@ -181,8 +181,8 @@ export async function initBabyBeat (opts) {
       }
     }
 
-   render(locked, scope, gain = 1) {
-  const { ctx, width, height, base, scale } = this;
+   render(locked, scope) {
+  const { ctx, width, height, buffer, head, base, scale } = this;
   if (!width || !height) return;
   ctx.clearRect(0, 0, width, height);
 
@@ -196,48 +196,22 @@ export async function initBabyBeat (opts) {
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  if (!(scope && scope.length)) return;
-
-  // visual gain (clamped)
-  const g = Math.max(0.8, Math.min(6, gain));
-  const amp = scale * 0.9 * g;
-  const step = width / scope.length;
-
-  // 1) Draw the white oscilloscope waveform
-  ctx.lineJoin = 'round';
-  ctx.lineCap  = 'round';
-  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  for (let i = 0; i < scope.length; i++) {
-    const v = (scope[i] - 128) / 128;         // -1..1
-    const x = i * step;
-    const y = base + (-v) * amp;              // invert so louder = higher
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-
-  // 2) If locked, add a soft green glow on the SAME waveform (no second line)
-  if (locked) {
-    ctx.strokeStyle = 'rgba(22,163,74,0.75)';
-    ctx.lineWidth = 3.2;
-    ctx.shadowColor = 'rgba(22,163,74,0.65)';
-    ctx.shadowBlur = 8;
-
+  // (1) Actual audio waveform (time-domain scope)
+  if (scope && scope.length) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 1.25;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const step = width / scope.length;
     ctx.beginPath();
     for (let i = 0; i < scope.length; i++) {
-      const v = (scope[i] - 128) / 128;
+      const v = (scope[i] - 128) / 128;     // -1..1
       const x = i * step;
-      const y = base + (-v) * amp;
+      const y = base + (-v) * (scale * 0.9); // invert so loudness goes up
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
-
-    // reset shadow
-    ctx.shadowBlur = 0;
   }
-}
-
 
   // (2) Beat trace overlay (green when pattern found)
   ctx.strokeStyle = locked ? '#16a34a' : '#64748b';
