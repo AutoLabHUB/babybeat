@@ -9,7 +9,7 @@ module.exports = async (req, res) => {
         price_data: {
           currency: 'usd',
           product_data: { name: 'BabyBeat Lifetime Access' },
-          unit_amount: 999,
+          unit_amount: 200,
         },
         quantity: 1,
       },
