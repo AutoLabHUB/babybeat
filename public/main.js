@@ -17,7 +17,7 @@
                 return;
             } else if (sessionId) {
                 // No token, but session_id present (just paid)
-                fetch('/verify-session', {
+                fetch('/api/verify-session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ session_id: sessionId })
