@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>BabyBeat — Hear the Rhythm</title>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet"/>
-  <!-- Put this in <head> and have Vercel inject it at build if you want -->
-<meta name="stripe-publishable-key" content="">
-
   <style>
     /* ===============================
        BabyBeat — Full Page CSS
@@ -508,37 +505,45 @@
     render();
   })();
 
- <script src="https://js.stripe.com/v3/"></script>
+  <!-- Stripe.js -->
+<script src="https://js.stripe.com/v3/"></script>
+
 <script>
-  // Footer year (existing)
-  document.getElementById('year').textContent = new Date().getFullYear();
-
-  async function getStripe() {
-    const r = await fetch('/api/config');
-    if (!r.ok) throw new Error('Failed to load Stripe config');
-    const { publishableKey } = await r.json();
-    if (!publishableKey) throw new Error('Missing STRIPE_PUBLISHABLE_KEY');
-    return Stripe(publishableKey);
-  }
-
-  const checkoutBtn = document.getElementById('checkout-button');
-  checkoutBtn.addEventListener('click', async () => {
-    // If welcome.js provides its own flow, keep using it.
-    if (window.startCheckout) return window.startCheckout();
-
-    try {
-      const stripe = await getStripe();
-      const res = await fetch('/api/create-checkout-session', { method: 'POST' });
-      if (!res.ok) { console.error(await res.text()); alert('Server error creating session'); return; }
-      const { id } = await res.json();
-      await stripe.redirectToCheckout({ sessionId: id });
-    } catch (e) {
-      console.error(e);
-      alert('Checkout config error. See console for details.');
+  // This script wires your button(s) to the server route without any hardcoded keys.
+  (function () {
+    async function getStripe() {
+      const r = await fetch('/api/config');
+      if (!r.ok) throw new Error('Failed to load Stripe config');
+      const { publishableKey } = await r.json();
+      if (!publishableKey) throw new Error('Missing STRIPE_PUBLISHABLE_KEY');
+      return Stripe(publishableKey);
     }
-  });
-</script>
 
+    async function startCheckout() {
+      // If welcome.js defined a handler, use that (keeps your existing flow)
+      if (window.startCheckout) return window.startCheckout();
+
+      try {
+        const stripe = await getStripe();
+        const res = await fetch('/api/create-checkout-session', { method: 'POST' });
+        if (!res.ok) {
+          console.error(await res.text());
+          alert('Server error creating session');
+          return;
+        }
+        const { id } = await res.json();
+        await stripe.redirectToCheckout({ sessionId: id });
+      } catch (e) {
+        console.error(e);
+        alert('Checkout config error. See console.');
+      }
+    }
+
+    // Attach to any checkout button you have
+    const btns = document.querySelectorAll('#checkout-button, [data-checkout]');
+    btns.forEach(btn => btn.addEventListener('click', startCheckout));
+  })();
+</script>
 
 <!-- Optional: your existing welcome.js can override checkout flow -->
 <script src="welcome.js" defer></script>
