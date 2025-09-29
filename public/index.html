@@ -355,15 +355,16 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) return alert(data.error || 'Login failed');
-        alert('Admin access granted.');
-        // Optional: navigate to your admin page or reveal admin UI
-        // location.href = '/admin.html';
+
+        // ✅ go to the admin/app page
+        window.location.assign('/main.html');
       } catch (e) {
         alert('Network error logging in.');
       }
     });
   })();
 </script>
+
 
 <style>
   .admin-btn{
