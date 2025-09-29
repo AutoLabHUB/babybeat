@@ -15,8 +15,6 @@ export default async function handler(req, res) {
       line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
       success_url: `${req.headers.origin}/?success=true`,
       cancel_url: `${req.headers.origin}/?canceled=true`,
-      // Optional: customer email collection
-      // customer_creation: 'always'
     });
 
     return res.status(200).json({ id: session.id });
