@@ -508,32 +508,37 @@
     render();
   })();
 
-  // STRIPE CHECKOUT (replace with your Price ID and publishable key if using redirectToCheckout)
+ <script src="https://js.stripe.com/v3/"></script>
+<script>
+  // Footer year (existing)
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  async function getStripe() {
+    const r = await fetch('/api/config');
+    if (!r.ok) throw new Error('Failed to load Stripe config');
+    const { publishableKey } = await r.json();
+    if (!publishableKey) throw new Error('Missing STRIPE_PUBLISHABLE_KEY');
+    return Stripe(publishableKey);
+  }
+
   const checkoutBtn = document.getElementById('checkout-button');
   checkoutBtn.addEventListener('click', async () => {
-    // Option A: You already have /welcome.js handling checkout — keep your existing flow.
+    // If welcome.js provides its own flow, keep using it.
     if (window.startCheckout) return window.startCheckout();
 
-  <script src="https://js.stripe.com/v3/"></script>
-<script>
-  // Read publishable key (no placeholder fallback!)
-  const PUBLISHABLE_KEY =
-    (document.querySelector('meta[name="stripe-publishable-key"]')?.content) ||
-    window.STRIPE_PUBLISHABLE_KEY; // if you set it globally at render time
-
-  const stripe = PUBLISHABLE_KEY ? Stripe(PUBLISHABLE_KEY) : null;
-
-  const checkoutBtn = document.getElementById('checkout-button');
-  checkoutBtn.addEventListener('click', async () => {
-    // Use your server route
-    const r = await fetch('/api/create-checkout-session', { method: 'POST' });
-    const data = await r.json();
-    if (!stripe) {
-      alert('Stripe key not configured'); return;
+    try {
+      const stripe = await getStripe();
+      const res = await fetch('/api/create-checkout-session', { method: 'POST' });
+      if (!res.ok) { console.error(await res.text()); alert('Server error creating session'); return; }
+      const { id } = await res.json();
+      await stripe.redirectToCheckout({ sessionId: id });
+    } catch (e) {
+      console.error(e);
+      alert('Checkout config error. See console for details.');
     }
-    await stripe.redirectToCheckout({ sessionId: data.id });
   });
 </script>
+
 
 <!-- Optional: your existing welcome.js can override checkout flow -->
 <script src="welcome.js" defer></script>
