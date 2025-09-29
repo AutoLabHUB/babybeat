@@ -1,8 +1,5 @@
 // welcome.js - Handles Stripe checkout for the welcome page
 
-// Replace with your actual Stripe publishable key
-const stripe = Stripe('pk_test_51SBsll3wafdwzED8JMdXQaetxtNlRMTq4t1Vy1e0NW7jPOGJ6CqNfTX8moitlOgIrO5xonbSrtevvQJoWfHqaSXU00LPQw5Z50');
-
 const checkoutButton = document.getElementById('checkout-button');
 
 checkoutButton.addEventListener('click', function () {
