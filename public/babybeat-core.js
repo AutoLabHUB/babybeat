@@ -366,13 +366,14 @@ const drawLoop = () => {
   if (!isRunning) return;
 
   // 1) Read analyser data
-  analyser.getFloatTimeDomainData(floatBuf);  // high-precision floats for peak detection
-  let peak = 0;
-  for (let i = 0; i < floatBuf.length; i++) {
-    const v = Math.abs(floatBuf[i]);
-    if (v > peak) peak = v;
-  }
-  analyser.getByteTimeDomainData(scopeBuf);   // bytes for fast oscilloscope drawing
+analyser.getFloatTimeDomainData(floatBuf);
+let peak = 0;
+for (let i = 0; i < floatBuf.length; i++) {
+  const v = Math.abs(floatBuf[i]);
+  if (v > peak) peak = v;
+}
+analyser.getByteTimeDomainData(scopeBuf);
+
 
   // 2) Thresholding / smoothing → level
   const sens = parseInt(els.sensitivity.value, 10);
