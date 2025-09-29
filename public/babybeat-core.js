@@ -403,7 +403,7 @@ const drawLoop = () => {
 
   // 7) Draw oscilloscope + beat trace
   vis.push(level, beat && hasPattern);
-  vis.render(hasPattern, scopeBuf);
+ vis.render(hasPattern, scopeBuf, scopeGain);
 
   drawRAF = requestAnimationFrame(drawLoop);
 };
