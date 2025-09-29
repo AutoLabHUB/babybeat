@@ -29,7 +29,6 @@
       --pad-lg: 2rem;
     }
 
-    /* Background layer: smooth, continuous, and separate from content */
     .page-bg{
       position: fixed;
       inset: 0;
@@ -38,10 +37,10 @@
       background-size: cover;
       background-repeat: no-repeat;
       pointer-events: none;
-      /* Helps reduce banding on some GPUs */
       transform: translateZ(0);
       will-change: transform;
     }
+
     /* Sticky Circular CTA */
     .sticky-cta {
       position: fixed;
@@ -64,17 +63,10 @@
 
       background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
       box-shadow: 0 12px 24px rgba(0,0,0,.25);
-
       transition: transform .2s ease, box-shadow .2s ease;
     }
+    .sticky-cta:hover { transform: translateY(-50%) scale(1.08); box-shadow: 0 16px 32px rgba(0,0,0,.3); }
 
-    .sticky-cta:hover {
-      transform: translateY(-50%) scale(1.08);
-      box-shadow: 0 16px 32px rgba(0,0,0,.3);
-    }
-
-
-    /* Base reset / typography */
     *{ box-sizing: border-box; }
     html, body{ height: 100%; }
     body{
@@ -89,13 +81,8 @@
     }
     img, svg, canvas, video{ max-width: 100%; height: auto; display: block; }
 
-    .wrap{
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: clamp(16px, 3vw, 32px);
-    }
+    .wrap{ max-width: 1100px; margin: 0 auto; padding: clamp(16px, 3vw, 32px); }
 
-    /* Generic glass card */
     .glass{
       background: var(--glass);
       backdrop-filter: blur(14px);
@@ -115,9 +102,7 @@
       gap: clamp(18px,2.5vw,24px);
     }
 
-    .brand{
-      display:flex; align-items:center; gap:12px; justify-content:center;
-    }
+    .brand{ display:flex; align-items:center; gap:12px; justify-content:center; }
     .brand .mark{
       width:60px; height:60px; display:grid; place-items:center;
       border-radius:50px;
@@ -126,13 +111,8 @@
     }
     .brand .name{ font-weight:800; letter-spacing:.3px; font-size:1.15rem; }
 
-    .hero-grid{
-      display:grid; gap:clamp(18px,2.8vw,28px);
-      grid-template-columns: 1.2fr 1fr;
-    }
-    @media (max-width: 900px){
-      .hero-grid{ grid-template-columns: 1fr; }
-    }
+    .hero-grid{ display:grid; gap:clamp(18px,2.8vw,28px); grid-template-columns: 1.2fr 1fr; }
+    @media (max-width: 900px){ .hero-grid{ grid-template-columns: 1fr; } }
 
     .hero-copy h1{
       font-size: clamp(1.9rem, 4vw, 3rem);
@@ -157,32 +137,18 @@
 
     .cta-row{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
 
-    /* Buttons */
-    button,
-    .button{
-      padding: 14px 20px;
-      border: none;
-      border-radius: 14px;
-      cursor: pointer;
-      font-weight: 800;
-      font-size: 1rem;
-      letter-spacing: .2px;
-      color: #fff;
+    button,.button{
+      padding: 14px 20px; border: none; border-radius: 14px; cursor: pointer;
+      font-weight: 800; font-size: 1rem; letter-spacing: .2px; color: #fff;
       background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
       box-shadow: 0 12px 28px rgba(0,0,0,.25);
       transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
     }
-    button:hover:not(:disabled),
-    .button:hover:not(.disabled){
-      transform: translateY(-2px);
-      box-shadow: 0 16px 36px rgba(0,0,0,.32);
+    button:hover:not(:disabled), .button:hover:not(.disabled){
+      transform: translateY(-2px); box-shadow: 0 16px 36px rgba(0,0,0,.32);
     }
-    button:disabled,
-    .button.disabled{
-      opacity: .6; cursor: not-allowed;
-    }
+    button:disabled, .button.disabled{ opacity: .6; cursor: not-allowed; }
 
-    /* Stripe secure badge */
     .secure{
       display:flex; align-items:center; gap:.6rem;
       padding:.6rem .8rem; border-radius:12px; border:1px solid var(--border);
@@ -192,87 +158,48 @@
     .stripe-logo{ height:14px; display:inline-block; vertical-align:middle; }
     .price-note{ font-size:.9rem; color:var(--muted); }
 
-    /* Visualizer demo */
     .visz-card{ position:relative; overflow:hidden; padding:var(--pad-lg); display:grid; gap:12px; }
     #demoCanvas{
       width:100%; height:220px; display:block;
       background: linear-gradient(180deg, rgba(51,109,211,.33) 0%, rgba(63,33,149,.38) 100%);
       border-radius:14px; border:1px solid var(--border);
     }
-    .bpm{
-      display:flex; align-items:center; justify-content:space-between;
-      font-weight:800; font-size:1.15rem;
-    }
+    .bpm{ display:flex; align-items:center; justify-content:space-between; font-weight:800; font-size:1.15rem; }
     .bpm small{ color:var(--muted); font-weight:600; }
     .pulseDot{
       width:12px; height:12px; border-radius:999px; background:#ff6b6b;
-      box-shadow:0 0 14px #ff6b6b, 0 0 6px #ff6b6b;
-      animation:pulse 1.1s infinite ease-in-out;
+      box-shadow:0 0 14px #ff6b6b, 0 0 6px #ff6b6b; animation:pulse 1.1s infinite ease-in-out;
     }
-    @keyframes pulse{
-      0%{ transform:scale(1); opacity:1 }
-      50%{ transform:scale(1.4); opacity:.6 }
-      100%{ transform:scale(1); opacity:1 }
-    }
+    @keyframes pulse{ 0%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.6} 100%{transform:scale(1);opacity:1} }
 
-    /* ===============================
-       SECTIONS
-       =============================== */
     section{ margin-top: clamp(18px, 3vw, 28px); }
     .section-card{ padding: var(--pad-lg); }
     .section-title{ font-size: clamp(1.4rem, 2.3vw, 1.8rem); margin:0 0 .75rem; font-weight:800; }
     .muted{ color:var(--muted); }
 
-    /* Features grid */
-    .features{
-      display:grid; gap:14px;
-      grid-template-columns: repeat(3, 1fr);
-    }
+    .features{ display:grid; gap:14px; grid-template-columns: repeat(3, 1fr); }
     @media (max-width: 900px){ .features{ grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 620px){ .features{ grid-template-columns: 1fr; } }
 
-    .feat{
-      padding:16px; border-radius:14px; border:1px solid var(--border);
-      background: var(--glass);
-    }
+    .feat{ padding:16px; border-radius:14px; border:1px solid var(--border); background: var(--glass); }
     .feat h3{ margin:.25rem 0 .35rem; font-size:1.05rem; font-weight:800; }
     .feat p{ margin:0; color:var(--muted); font-size:.95rem; }
-    .icon{
-      width:36px; height:36px; border-radius:10px;
-      background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
-      display:grid; place-items:center; box-shadow:0 8px 20px rgba(0,0,0,.2);
-    }
+    .icon{ width:36px; height:36px; border-radius:10px; background: linear-gradient(135deg, var(--accent-1), var(--accent-2)); display:grid; place-items:center; box-shadow:0 8px 20px rgba(0,0,0,.2); }
     .icon svg{ width:18px; height:18px; fill:#fff; }
 
-    /* Steps */
-    .steps{
-      display:grid; gap:14px; grid-template-columns: repeat(3, 1fr);
-    }
+    .steps{ display:grid; gap:14px; grid-template-columns: repeat(3, 1fr); }
     @media (max-width: 900px){ .steps{ grid-template-columns: 1fr; } }
-    .step{
-      padding:16px; border:1px solid var(--border);
-      border-radius:14px; background: var(--glass);
-    }
+    .step{ padding:16px; border:1px solid var(--border); border-radius:14px; background: var(--glass); }
     .step .num{
-      width:28px; height:28px; border-radius:999px;
-      background: rgba(255,255,255,.16);
-      display:grid; place-items:center;
-      font-weight:800; border:1px solid var(--border);
+      width:28px; height:28px; border-radius:999px; background: rgba(255,255,255,.16);
+      display:grid; place-items:center; font-weight:800; border:1px solid var(--border);
     }
 
-    /* FAQ */
     .faq{ display:grid; gap:12px; }
-    details{
-      padding:14px 16px; border-radius:12px;
-      border:1px solid var(--border);
-      background: var(--glass);
-    }
+    details{ padding:14px 16px; border-radius:12px; border:1px solid var(--border); background: var(--glass); }
     summary{ cursor:pointer; font-weight:800; outline:none; }
     details p{ margin:.6rem 0 0; color:var(--muted); }
 
-    /* ===============================
-       FOOTER
-       =============================== */
     footer{
       margin: 28px 0 8px; padding: 18px; border-radius:14px;
       border:1px solid var(--border); background: var(--glass);
@@ -283,12 +210,8 @@
     .links a{ color:#fff; text-decoration:none; opacity:.9; }
     .links a:hover{ opacity:1; text-decoration:underline; }
 
-    /* Accessibility helper */
-    .sr-only{
-      position:absolute; width:1px; height:1px; margin:-1px; padding:0;
-      overflow:hidden; clip:rect(0,0,0,0); border:0;
-    }
-</style>
+    .sr-only{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); border:0; }
+  </style>
 </head>
 <body>
 <div class="page-bg" aria-hidden="true"></div>
@@ -303,9 +226,7 @@
 
     <div class="hero-grid">
       <div class="hero-copy">
-          <span class="badge" aria-label="Educational tool">
-            Learn & Bond • Not a medical device
-          </span>
+        <span class="badge" aria-label="Educational tool">Learn & Bond • Not a medical device</span>
         <h1>Hear the rhythm. See the heartbeat. Save the moment.</h1>
         <p>BabyBeat lets you monitor and visualize fetal heart sounds with your device’s microphone. Beautiful visuals, helpful filters, and recordings you can keep.</p>
 
@@ -319,12 +240,7 @@
               <path d="M8 10V8a4 4 0 118 0v2" stroke="white" stroke-opacity=".8" stroke-width="1.5"/>
             </svg>
             <span class="tiny">Secure checkout</span>
-
-            <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/1024px-Stripe_Logo%2C_revised_2016.svg.png?20240909030005"
-                    alt="Stripe logo"
-                    class="stripe-logo"
-            />
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/1024px-Stripe_Logo%2C_revised_2016.svg.png?20240909030005" alt="Stripe logo" class="stripe-logo"/>
           </div>
           <div class="price-note">No subscription. Pay per use.</div>
         </div>
@@ -350,44 +266,32 @@
     <p class="muted">Modern audio filters, beautiful visualization, and simple controls — all in your browser.</p>
     <div class="features" role="list">
       <article class="feat" role="listitem">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M3 12h4l3 7 4-14 3 7h4"/></svg>
-        </div>
+        <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 7 4-14 3 7h4"/></svg></div>
         <h3>Real-time Visualizer</h3>
         <p>Watch waveforms pulse in sync with the heartbeat for an engaging bonding moment.</p>
       </article>
       <article class="feat" role="listitem">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg>
-        </div>
+        <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg></div>
         <h3>Smart Filters</h3>
         <p>Adjust sensitivity and frequency filters to reduce noise and enhance clarity.</p>
       </article>
       <article class="feat" role="listitem">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M5 5h14v14H5zM9 9h6v6H9z"/></svg>
-        </div>
+        <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5zM9 9h6v6H9z"/></svg></div>
         <h3>Record & Save</h3>
         <p>Capture short clips to relive and share the heartbeat moments later.</p>
       </article>
       <article class="feat" role="listitem">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
-        </div>
+        <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg></div>
         <h3>Clear Guidance</h3>
         <p>Step-by-step tips on positioning and best-practice listening.</p>
       </article>
       <article class="feat" role="listitem">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
-        </div>
+        <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg></div>
         <h3>Headphone-Safe Monitor</h3>
         <p>Live monitor designed for headphones to prevent feedback.</p>
       </article>
       <article class="feat" role="listitem">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L6.5 20l2-7L3 9h7z"/></svg>
-        </div>
+        <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L6.5 20l2-7L3 9h7z"/></svg></div>
         <h3>Pay-per-Use</h3>
         <p>No subscriptions. $1.90 per session via secure Stripe checkout.</p>
       </article>
@@ -398,21 +302,9 @@
   <section class="section-card glass">
     <h2 class="section-title">How it works</h2>
     <div class="steps">
-      <div class="step">
-        <div class="num">1</div>
-        <h3>Choose Microphone</h3>
-        <p class="muted">Use your phone’s mic or an external mic. Headphones recommended.</p>
-      </div>
-      <div class="step">
-        <div class="num">2</div>
-        <h3>Find the Beat</h3>
-        <p class="muted">Move slowly, keep contact on skin, tweak sensitivity & filter.</p>
-      </div>
-      <div class="step">
-        <div class="num">3</div>
-        <h3>See & Save</h3>
-        <p class="muted">Watch the visuals dance and save a short clip to cherish.</p>
-      </div>
+      <div class="step"><div class="num">1</div><h3>Choose Microphone</h3><p class="muted">Use your phone’s mic or an external mic. Headphones recommended.</p></div>
+      <div class="step"><div class="num">2</div><h3>Find the Beat</h3><p class="muted">Move slowly, keep contact on skin, tweak sensitivity & filter.</p></div>
+      <div class="step"><div class="num">3</div><h3>See & Save</h3><p class="muted">Watch the visuals dance and save a short clip to cherish.</p></div>
     </div>
   </section>
 
@@ -446,11 +338,13 @@
   </footer>
 </div>
 
-<!-- Stripe & App JS -->
-<script src="https://js.stripe.com/v3/"></script>
+<!-- Demo scripts -->
 <script>
   // Footer year
-  document.getElementById('year').textContent = new Date().getFullYear();
+  window.addEventListener('DOMContentLoaded', () => {
+    const y = document.getElementById('year');
+    if (y) y.textContent = new Date().getFullYear();
+  });
 
   // DEMO VISUALIZER (cosmetic only)
   (function(){
@@ -468,13 +362,11 @@
     const bpmEl = document.getElementById('bpmText');
     function render(){
       t += 0.016;
-      // playful wobble of BPM
       const wobble = 3 * Math.sin(t*1.4);
       const show = Math.round(bpm + wobble);
       bpmEl.textContent = show + ' BPM';
 
       ctx.clearRect(0,0,c.clientWidth,c.clientHeight);
-      // grid
       ctx.globalAlpha = .2;
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1;
@@ -483,7 +375,6 @@
       for(let y=0; y<c.clientHeight; y+=24){ ctx.moveTo(0,y); ctx.lineTo(c.clientWidth,y); }
       ctx.stroke();
 
-      // waveform
       ctx.globalAlpha = 1;
       const grad = ctx.createLinearGradient(0,0,c.clientWidth,0);
       grad.addColorStop(0,'#f87171'); grad.addColorStop(.5,'#fb923c'); grad.addColorStop(1,'#caff00');
@@ -493,7 +384,6 @@
       const mid = c.clientHeight/2;
       for(let x=0; x<c.clientWidth; x++){
         const n = Math.sin((x*.018)+t*4)*14 + Math.sin((x*.05)-t*2)*6;
-        // add a “beat” blip every second based on BPM
         const beatPeriod = 60 / bpm;
         const beat = (t % beatPeriod) < 0.08 ? Math.exp(-((t % beatPeriod)/0.08)*4)*28 : 0;
         const y = mid + n - beat * Math.sin(x*.18);
@@ -504,50 +394,56 @@
     }
     render();
   })();
+</script>
 
-  <!-- Stripe.js -->
+<!-- Stripe.js -->
 <script src="https://js.stripe.com/v3/"></script>
 
+<!-- Checkout glue -->
 <script>
-  // This script wires your button(s) to the server route without any hardcoded keys.
-  (function () {
+  window.addEventListener('DOMContentLoaded', () => {
     async function getStripe() {
       const r = await fetch('/api/config');
-      if (!r.ok) throw new Error('Failed to load Stripe config');
-      const { publishableKey } = await r.json();
-      if (!publishableKey) throw new Error('Missing STRIPE_PUBLISHABLE_KEY');
-      return Stripe(publishableKey);
+      const text = await r.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch (e) { console.error('CONFIG returned HTML:', text); throw new Error('Config route not returning JSON'); }
+      if (!r.ok) throw new Error(data.error || 'Failed to load Stripe config');
+      if (!data.publishableKey) throw new Error('Missing STRIPE_PUBLISHABLE_KEY');
+      return Stripe(data.publishableKey);
     }
 
-    async function startCheckout() {
-      // If welcome.js defined a handler, use that (keeps your existing flow)
+    async function startCheckout(e) {
+      if (e) e.preventDefault();
+      // If welcome.js provides a custom flow, prefer it
       if (window.startCheckout) return window.startCheckout();
 
       try {
         const stripe = await getStripe();
         const res = await fetch('/api/create-checkout-session', { method: 'POST' });
-        if (!res.ok) {
-          console.error(await res.text());
-          alert('Server error creating session');
-          return;
-        }
-        const { id } = await res.json();
-        await stripe.redirectToCheckout({ sessionId: id });
-      } catch (e) {
-        console.error(e);
-        alert('Checkout config error. See console.');
+        const bodyText = await res.text();
+        let body;
+        try { body = JSON.parse(bodyText); }
+        catch (e) { console.error('CHECKOUT returned HTML:', bodyText); alert('Server error creating session'); return; }
+        if (!res.ok) { console.error('Checkout error:', body); alert(body.error || 'Server error creating session'); return; }
+        await stripe.redirectToCheckout({ sessionId: body.id });
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Checkout config error');
       }
     }
 
-    // Attach to any checkout button you have
-    const btns = document.querySelectorAll('#checkout-button, [data-checkout]');
-    btns.forEach(btn => btn.addEventListener('click', startCheckout));
-  })();
+    const triggers = document.querySelectorAll('#checkout-button, [data-checkout]');
+    triggers.forEach(el => el.addEventListener('click', startCheckout));
+  });
 </script>
 
 <!-- Optional: your existing welcome.js can override checkout flow -->
 <script src="welcome.js" defer></script>
-<a href="#checkout" class="sticky-cta">Access Now</a>
+
+<!-- Sticky CTA triggers checkout -->
+<a href="#" class="sticky-cta" data-checkout role="button" aria-label="Get access now">Access Now</a>
 
 </body>
 </html>
+
