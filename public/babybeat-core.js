@@ -141,6 +141,7 @@ export async function initBabyBeat (opts) {
       this.ctx = this.canvas.getContext('2d');
       this.width = 0; this.height = 0;
       this.base = 0; this.scale = 0;
+      this._prev = null; 
 
       const onResize = () => {
         const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
@@ -186,8 +187,21 @@ export async function initBabyBeat (opts) {
         const v = (s - 128) / 128;              // -1..1
         pts.push({ x, y: base + (-v) * amp });
       }
-      for (let i = 1; i < pts.length - 1; i++) {
-        pts[i].y = (pts[i-1].y + pts[i].y + pts[i+1].y) / 3;
+      // moving-average smooth (5-tap) for a calmer shape
+for (let i = 2; i < pts.length - 2; i++) {
+  pts[i].y = (pts[i-2].y + pts[i-1].y + pts[i].y + pts[i+1].y + pts[i+2].y) / 5;
+}
+
+// blend with previous frame for temporal stability
+if (this._prev && this._prev.length === pts.length) {
+  // 80% previous frame + 20% new frame → much steadier
+  for (let i = 0; i < pts.length; i++) {
+    pts[i].y = this._prev[i].y * 0.8 + pts[i].y * 0.2;
+  }
+}
+// store current frame as “previous” for next time
+this._prev = pts.map(p => ({ x: p.x, y: p.y }));
+
       }
 
       // gradient stroke
