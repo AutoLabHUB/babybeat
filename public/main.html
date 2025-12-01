@@ -1,594 +1,551 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Baby Beat Detector</title>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root{
-            --bg:linear-gradient(135deg, #4d6cf4 0%, #fa428f 100%);
-            --card-bg: rgba(255, 255, 255, 0.1);
-            --text-primary: #f7fafc;
-            --text-secondary: #e2e8f0;
-            --text-muted: #ffffff;
-            --accent-primary: rgb(255, 125, 223);
-            --accent-secondary: #649fff;
-            --accent-danger: #ff0000;
-            --border-color: rgba(246, 243, 255, 0.41);
-            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
-            --radius: 1rem;
-            --space: 1.5rem;
-            --glass-blur: 12px;
-        }
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            background: var(--bg);
-            color: var(--text-primary);
-            font-family: 'Sora';
-            line-height: 1.6;
-            min-height: 100vh;
-            padding: var(--space);
-        }
-        .wrap { max-width: 1100px; margin: 0 auto; }
-        .app { display: flex; flex-direction: column; gap: var(--space); }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Baby Beat Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:linear-gradient(135deg, #4d6cf4 0%, #fa428f 100%);
+      --card-bg: rgba(255, 255, 255, 0.1);
+      --text-primary: #f7fafc;
+      --text-secondary: #e2e8f0;
+      --text-muted: #ffffff;
+      --accent-primary: rgb(255, 125, 223);
+      --accent-secondary: #649fff;
+      --accent-danger: #ff0000;
+      --border-color: rgba(246, 243, 255, 0.41);
+      --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+      --radius: 1rem;
+      --space: 1.5rem;
+      --glass-blur: 12px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: 'Sora', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: var(--space);
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    .app { display: flex; flex-direction: column; gap: var(--space); }
 
-        /* Header */
-        header {
-            padding: var(--space);
-            text-align: center;
-            background: var(--card-bg);
-            backdrop-filter: blur(var(--glass-blur));
-            border-radius: var(--radius);
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow);
-        }
-        .title {
-            font-size: 2.25rem;
-            font-weight: 800;
-            background: linear-gradient(90deg, var(--text-primary), var(--text-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-fill-color: transparent;
-        }
-        .subtitle { font-size: 1.1rem; color: var(--text-muted); margin-top: 0.5rem; }
+    header {
+      padding: var(--space);
+      text-align: center;
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+    }
+    .title {
+      font-size: 2.25rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--text-primary), var(--text-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-fill-color: transparent;
+    }
+    .subtitle { font-size: 1.1rem; color: var(--text-muted); margin-top: 0.5rem; }
 
-        /* Navigation */
-        nav {
-            position: sticky;
-            top: var(--space);
-            z-index: 50;
-            background: var(--card-bg);
-            backdrop-filter: blur(var(--glass-blur));
-            border-radius: var(--radius);
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow);
-            padding: 0.75rem;
-        }
-        .tabbar { display: flex; justify-content: center; gap: 0.75rem; }
-        .tab {
-            flex: 1;
-            max-width: 200px;
-            padding: 0.8rem 1rem;
-            border-radius: 0.75rem;
-            border: none;
-            background: transparent;
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-weight: 700;
-            font-size: 1rem;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-        .tab.active {
-            background: var(--accent-primary);
-            color: #fff;
-            box-shadow: 0 4px 12px rgba(138, 92, 246, 0.4);
-        }
-        .tab:hover:not(.active) { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    nav {
+      position: sticky;
+      top: var(--space);
+      z-index: 50;
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+      padding: 0.75rem;
+    }
+    .tabbar { display: flex; justify-content: center; gap: 0.75rem; }
+    .tab {
+      flex: 1;
+      max-width: 200px;
+      padding: 0.8rem 1rem;
+      border-radius: 0.75rem;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 1rem;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    .tab.active {
+      background: var(--accent-primary);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(138, 92, 246, 0.4);
+    }
+    .tab:hover:not(.active) { background: rgba(255, 255, 255, 0.1); color: #fff; }
 
-        /* Main Content */
-        main { flex: 1; display: flex; flex-direction: column; gap: var(--space); }
-        section {
-            padding: var(--space);
-            background: var(--card-bg);
-            backdrop-filter: blur(var(--glass-blur));
-            border-radius: var(--radius);
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow);
-            display: none;
-        }
-        section.active { display: block; }
+    main { flex: 1; display: flex; flex-direction: column; gap: var(--space); }
+    section {
+      padding: var(--space);
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+      display: none;
+    }
+    section.active { display: block; }
 
-        /* Buttons */
-        button {
-            padding: 1rem 1.5rem;
-            border-radius: 1rem;
-            border: none;
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            color: #fff;
-            font-family: 'Sora';
-            font-weight: 700;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        }
-        button:hover:not(:disabled) {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(138, 92, 246, 0.4);
-        }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            background: rgba(255, 255, 255, 0.1);
-            box-shadow: none;
-        }
-        .top-cta { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
+    button {
+      padding: 1rem 1.5rem;
+      border-radius: 1rem;
+      border: none;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      color: #fff;
+      font-family: 'Sora';
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(138, 92, 246, 0.4);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: none;
+    }
+    .top-cta { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
 
-        /* Controls & Panels */
-        .pane { display: flex; flex-direction: column; gap: var(--space); }
-        .group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            padding: var(--space);
-            border-radius: var(--radius);
-            background: rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--border-color);
-        }
-        .group h3 { margin: 0 0 0.5rem; color: var(--text-primary); font-weight: 700; }
-        
-        .status {
-            /* Text alignment (center, left, right) */
-            text-align: center;
+    .pane { display: flex; flex-direction: column; gap: var(--space); }
+    .group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding: var(--space);
+      border-radius: var(--radius);
+      background: rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--border-color);
+    }
+    .group h3 { margin: 0 0 0.5rem; color: var(--text-primary); font-weight: 700; }
 
-            /* Font size */
-            font-size: 1rem;
+    .status {
+      text-align: center;
+      font-size: 1rem;
+      color: var(--text-muted);
+      padding: 1rem;
+      border-radius: var(--radius);
+      background: rgb(146, 70, 255);
+      transition: all 0.3s ease;
+    }
 
-            /* Text color, using a variable for muted text */
-            color: var(--text-muted);
+    .viz {
+      height: 280px;
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(51, 109, 211, 0.33) 0%, rgba(63, 33, 149, 0.38) 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    .waveform{
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .pulse {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 20px; height: 20px;
+      background: #f87171;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      box-shadow: 0 0 16px #f87171, 0 0 8px #f87171;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    .pulse.active {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.15);
+    }
+    .bpm { text-align: center; font-weight: 800; color: #fff; margin-top: 1rem; font-size: 1.75rem; }
+    .hint { text-align: center; font-size: 0.9rem; color: var(--text-muted); }
 
-            /* Inner spacing */
-            padding: 1rem;
+    .audio { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+    .scrollable { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space); }
+    .warning {
+      border: 1px solid var(--accent-danger);
+      border-radius: var(--radius);
+      padding: 1rem;
+      background: rgba(239, 68, 68, 0.1);
+      color: #ffffff;
+    }
 
-            /* Border style (e.g., '1px solid #fff', 'none') */
-            border: 1px var(--border-color);
+    @media (max-width: 599px){
+      .area-viz{ order: 0; }
+      .area-controls{ order: 1; }
+      .area-cta{ order: 2; }
+      .area-audio{ order: 3; }
+    }
 
-            /* Corner roundness */
-            border-radius: var(--radius);
+    @media (min-width: 600px) and (max-width: 1023px) {
+      .grid-detector { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space); }
+      .area-cta, .area-audio { grid-column: span 2; }
+    }
+    @media (min-width: 1024px) {
+      .grid-detector { display: grid; grid-template-columns: 1fr 1.5fr; gap: var(--space); }
+      .area-cta, .area-audio { grid-column: span 2; }
+    }
 
-            /* Background color and transparency */
-            background: rgb(146, 70, 255);
+    /* Mobile tweaks & sticky alignment */
+    nav { position: sticky; top: 0; z-index: 50; }
+    nav .tabbar{
+      width: min(920px, 92vw);
+      margin: 8px auto 12px auto;
+      border-radius: 14px;
+    }
+    .grid-detector{
+      width: min(920px, 92vw);
+      margin-inline: auto;
+    }
 
-            /* Optional: Add a subtle transition for any changes */
-            transition: all 0.3s ease;
-        }
-        /* Visualization */
-        .viz {
-            height: 280px;
-            border-radius: var(--radius);
-            background: linear-gradient(180deg, rgba(51, 109, 211, 0.33) 0%, rgba(63, 33, 149, 0.38) 100%);
-            position: relative;
-            overflow: hidden;
-        }
-.waveform{
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  transform: none;   /* don't move the whole layer */
-  background: none;
-}
-.waveform::before { display: none !important; }
+    @media (max-width: 680px){
+      .grid-detector{
+        display: grid;
+        grid-template-areas:
+          "viz"
+          "status"
+          "cta"
+          "controls"
+          "audio";
+        gap: 12px;
+      }
+      .area-viz{ grid-area: viz; }
+      #status{
+        grid-area: status;
+        width: 100%;
+        display: block;
+        text-align: center;
+        font-weight: 700;
+        font-size: clamp(14px, 4.2vw, 16px);
+        padding: 10px 12px;
+        margin: 0 auto;
+        border-radius: 12px;
+      }
+      .area-cta{ grid-area: cta; }
+      .area-controls{ grid-area: controls; }
+      .area-audio{ grid-area: audio; }
 
+      .area-viz .pane{ min-height: 220px; }
+      #waveform{ min-height: 200px; }
+      #waveform{ width: 100% !important; height: 100% !important; }
 
+      .top-cta{
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .top-cta button{
+        width: 100%;
+        padding: 12px 10px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      #startBtn{ grid-column: 1 / -1; }
+      #stopBtn{ grid-column: 1 / -1; }
 
+      .area-controls .pane{ padding: 12px; }
+      .area-controls .group{ margin-bottom: 10px; }
+      .area-controls label{ font-size: 13px; font-weight: 600; }
+      .area-controls input[type="range"]{ width: 100%; touch-action: pan-y; }
+      .select, select{
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        font-size: 14px;
+      }
 
-        .pulse {
-            position: absolute; left: 50%; top: 50%; width: 20px; height: 20px;
-            background: #f87171;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            opacity: 0;
-            box-shadow: 0 0 16px #f87171, 0 0 8px #f87171;
-        }
-        .bpm { text-align: center; font-weight: 800; color: #fff; margin-top: 1rem; font-size: 1.75rem; }
-        .hint { text-align: center; font-size: 0.9rem; color: var(--text-muted); }
+      .area-viz .bpm{
+        position: static;
+        margin-top: 6px;
+        text-align: center;
+        font-size: clamp(16px, 5vw, 18px);
+        font-weight: 800;
+      }
 
-        /* Other Components */
-        .audio { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
-        .scrollable { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space); }
-        .warning {
-            border: 1px solid var(--accent-danger);
-            border-radius: var(--radius);
-            padding: 1rem;
-            background: rgba(239, 68, 68, 0.1);
-            color: #ffffff;
-        }
+      .area-audio .audio{
+        padding: 10px;
+        border-radius: 12px;
+      }
+    }
 
-        /* Layout */
-       @media (max-width: 599px){
-  .area-viz{ order: 0; }      /* visualiser first */
-  .area-controls{ order: 1; } /* mic + status live here */
-  .area-cta{ order: 2; }      /* start/stop buttons */
-  .area-audio{ order: 3; }    /* playback last */
-}
-
-        @media (min-width: 600px) and (max-width: 1023px) {
-            .grid-detector { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space); }
-            .area-cta, .area-audio { grid-column: span 2; }
-        }
-        @media (min-width: 1024px) {
-            .grid-detector { display: grid; grid-template-columns: 1fr 1.5fr; gap: var(--space); }
-            .area-cta, .area-audio { grid-column: span 2; }
-        }
-
-        /* =======================
-   MOBILE LAYOUT POLISH
-   ======================= */
-
-/* Align sticky menu with page content */
-nav { position: sticky; top: 0; z-index: 50; }
-nav .tabbar{
-  width: min(920px, 92vw);
-  margin: 8px auto 12px auto;
-  border-radius: 14px;
-}
-
-/* Make detector area align with the tabbar width */
-.grid-detector{
-  width: min(920px, 92vw);
-  margin-inline: auto;
-}
-
-/* Visualiser prominence on phones */
-@media (max-width: 680px){
-  /* Re-order to: viz → status → CTA → controls → audio */
-  .grid-detector{
-    display: grid;
-    grid-template-areas:
-      "viz"
-      "status"
-      "cta"
-      "controls"
-      "audio";
-    gap: 12px;
-  }
-  .area-viz{ grid-area: viz; }
-  /* Put the status in its own row (we'll lift the existing #status) */
-  #status{
-    grid-area: status;
-    width: 100%;
-    display: block;
-    text-align: center;
-    font-weight: 700;
-    font-size: clamp(14px, 4.2vw, 16px);
-    padding: 10px 12px;
-    margin: 0 auto;
-    border-radius: 12px;
-  }
-
-  .area-cta{ grid-area: cta; }
-  .area-controls{ grid-area: controls; }
-  .area-audio{ grid-area: audio; }
-
-  /* Visualiser box height and canvas clarity */
-  .area-viz .pane{ min-height: 220px; }
-  #waveform{ min-height: 200px; }
-  /* If you insert a canvas in #waveform, make sure it fills */
-  #waveform canvas{ width: 100% !important; height: 100% !important; }
-
-  /* Buttons: bigger tap targets, tidy wrapping */
-  .top-cta{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .top-cta button{
-    width: 100%;
-    padding: 12px 10px;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 700;
-  }
-  /* Make Start/Stop full width rows for clarity */
-  #startBtn{ grid-column: 1 / -1; }
-  #stopBtn{ grid-column: 1 / -1; }
-
-  /* Controls: compact, easy to scan */
-  .area-controls .pane{ padding: 12px; }
-  .area-controls .group{ margin-bottom: 10px; }
-  .area-controls label{ font-size: 13px; font-weight: 600; }
-  .area-controls input[type="range"]{ width: 100%; touch-action: pan-y; }
-  .select, select{
-    width: 100%;
-    padding: 10px 12px;
-    border-radius: 12px;
-    font-size: 14px;
-  }
-
-  /* BPM readout under viz for quick glance */
-  .area-viz .bpm{
-    position: static;
-    margin-top: 6px;
-    text-align: center;
-    font-size: clamp(16px, 5vw, 18px);
-    font-weight: 800;
-  }
-
-  /* Audio playback sits last and compact */
-  .area-audio .audio{
-    padding: 10px;
-    border-radius: 12px;
-  }
-}
-
-/* Slightly larger phones / small tablets */
-@media (min-width: 681px) and (max-width: 960px){
-  .grid-detector,
-  nav .tabbar{ width: min(980px, 94vw); }
-  .top-cta{ grid-template-columns: repeat(3, 1fr); }
-  #startBtn{ grid-column: auto; }
-  #stopBtn{ grid-column: auto; }
-}
-
-/* Cosmetic: ensure all “cards/boxes” line up visually with the sticky menu */
-nav .tabbar,
-.grid-detector .pane,
-.area-audio .audio{
-  /* match radius/shadow to your theme */
-  border-radius: 14px;
-}
-
-
-    </style>
+    nav .tabbar,
+    .grid-detector .pane,
+    .area-audio .audio{
+      border-radius: 14px;
+    }
+  </style>
 </head>
 <body>
-  
-    <script>
+
+<script>
+  // Simple admin guard – keep as-is, or remove if you don’t need login
   (async () => {
     try {
       const r = await fetch('/api/verify-admin', { credentials: 'include' });
       if (!r.ok) throw new Error('not authed');
     } catch {
-      // Not logged in → send back to landing
       window.location.replace('/');
     }
   })();
 </script>
-    <script>
+
+<script>
+  // Scroll status into view when starting
   (function(){
-    const start = document.querySelector('#startBtn');
-    const viz = document.querySelector('.area-viz');
-    const status = document.querySelector('#status');
-    if (start && viz) {
-      start.addEventListener('click', () => {
-        const target = status || viz;
-        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
+    window.addEventListener('DOMContentLoaded', () => {
+      const start = document.querySelector('#startBtn');
+      const status = document.querySelector('#status');
+      if (start && status) {
+        start.addEventListener('click', () => {
+          status.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+    });
   })();
 </script>
 
-
 <div class="app wrap">
-    <header>
-        <div class="title">Baby Beat Detector</div>
-        <div class="subtitle">Monitor, visualize & record your baby's heartbeat</div>
-    </header>
+  <header>
+    <div class="title">Baby Beat Detector</div>
+    <div class="subtitle">Monitor, visualise & record your baby's heartbeat</div>
+  </header>
 
-    <nav>
-        <div class="tabbar">
-            <button class="tab active" data-tab="detector">Detector</button>
-            <button class="tab" data-tab="instructions">Instructions</button>
-            <button class="tab" data-tab="positioning">Positioning</button>
+  <nav>
+    <div class="tabbar">
+      <button class="tab active" data-tab="detector">Detector</button>
+      <button class="tab" data-tab="instructions">Instructions</button>
+      <button class="tab" data-tab="positioning">Positioning</button>
+    </div>
+  </nav>
+
+  <main>
+    <section id="detector-tab" class="tab-content active">
+      <div class="grid-detector">
+        <div class="area-cta">
+          <div class="top-cta">
+            <button id="startBtn">Start Listening</button>
+            <button id="stopBtn" disabled>Stop</button>
+            <button id="monitorBtn" disabled>Monitor: Off</button>
+            <button id="playEnhancedBtn" disabled>Play Enhanced Sound</button>
+            <button id="recBtn" disabled>Start Recording</button>
+          </div>
         </div>
-    </nav>
 
-    <main>
-        <section id="detector-tab" class="tab-content active">
-            <div class="grid-detector">
-                <!-- Call-to-action toolbar -->
-                <div class="area-cta">
-                    <div class="top-cta">
-                        <button id="startBtn">Start Listening</button>
-                        <button id="stopBtn" disabled>Stop</button>
-                        <button id="monitorBtn" disabled>Monitor: Off</button>
-                        <button id="playEnhancedBtn" disabled>Play Enhanced Sound</button>
-                        <button id="recBtn" disabled>Start Recording</button>
-                    </div>
-                </div>
-
-                <!-- Controls panel -->
-                <div class="area-controls">
-                    <div class="pane">
-                        <div class="group">
-                            <h3>Microphone</h3>
-                            <select id="micType" class="select">
-                                <option value="smartphone">Smartphone Built-in Mic</option>
-                                <option value="dji-mic-mini" selected>DJI Mic Mini</option>
-                                <option value="professional">Professional External Mic</option>
-                                <option value="stethoscope">Electronic Stethoscope</option>
-                            </select>
-                            <div class="warning small">Use <strong>headphones</strong> for monitoring to prevent feedback.</div>
-                        </div>
-                        <div id="status" class="status">Select microphone type and click “Start Listening”.</div>
-                        <div class="group">
-                            <label for="sensitivity">Sensitivity</label>
-                            <input type="range" id="sensitivity" min="1" max="10" value="7"/>
-                            <div class="value">Current: <span id="sensitivityValue">7</span></div>
-                        </div>
-
-                        <div class="group">
-                            <label for="filterFreq">Filter Frequency (Hz)</label>
-                            <input type="range" id="filterFreq" min="10" max="400" value="60"/>
-                            <div class="value">Current: <span id="filterValue">60 Hz</span></div>
-                        </div>
-
-                        <div class="group">
-                            <label for="monitorVol">Monitor Volume (%)</label>
-                            <input type="range" id="monitorVol" min="0" max="100" value="30"/>
-                            <div class="value">Current: <span id="monitorVolValue">30%</span></div>
-                        </div>
-
-
-                    </div>
-                </div>
-
-                <!-- Visualization panel -->
-                <div class="area-viz">
-                    <div class="pane">
-                        <div class="viz" id="visualization">
-                            <div class="waveform" id="waveform"></div>
-                            <div class="pulse" id="pulse"></div>
-                        </div>
-                        <div class="bpm"><span id="bpm">-- BPM</span></div>
-                        <div class="hint">Tip: Adjust sensitivity and filter to reduce background noise.</div>
-                    </div>
-                </div>
-
-                <!-- Audio playback -->
-                <div class="area-audio">
-                    <div class="audio" id="playbackArea" style="display:none;">
-                        <audio id="playbackAudio" controls></audio>
-                        <a id="downloadLink" href="#" download="heartbeat.webm">Download recording</a>
-                    </div>
-                </div>
+        <div class="area-controls">
+          <div class="pane">
+            <div class="group">
+              <h3>Microphone</h3>
+              <select id="micType" class="select">
+                <option value="smartphone" selected>Smartphone Built-in Mic</option>
+                <option value="dji-mic-mini">DJI Mic / DJI Mic 2</option>
+                <option value="professional">Professional External Mic</option>
+                <option value="stethoscope">Electronic Stethoscope</option>
+              </select>
+              <div class="warning small">
+                Use <strong>headphones</strong> for live monitoring to prevent feedback.
+              </div>
             </div>
-        </section>
 
-        <section id="instructions-tab" class="tab-content">
-            <div class="scrollable">
-                <div class="warning">
-                    <h4>Important Medical Disclaimer</h4>
-                    <p class="small">This app is for educational purposes only. It should NOT replace professional prenatal care or medical equipment. Always consult healthcare professionals for proper fetal monitoring.</p>
-                </div>
-                <h3>Microphone Setup Guide</h3>
-                <ul>
-                    <li>Always <strong>use headphones</strong> for live monitoring to avoid feedback.</li>
-                    <li>Keep filter around <strong>50–80 Hz</strong>, sensitivity <strong>6–9</strong>.</li>
-                    <li>Place mic directly on skin; move slowly and gently.</li>
-                </ul>
-                <h3>Troubleshooting</h3>
-                <ul>
-                    <li>No mic detected? Use HTTPS/localhost and allow permission.</li>
-                    <li>Too much hiss? Lower Sensitivity or Monitor Volume.</li>
-                    <li>Very high BPM (e.g. 180)? Likely noise/double-counting.</li>
-                </ul>
+            <div id="status" class="status">
+              Select microphone type and click “Start Listening”.
             </div>
-        </section>
 
-        <section id="positioning-tab" class="tab-content">
-            <div class="scrollable">
-                <h3>Optimal Microphone Positioning</h3>
-                <p class="small">From ~18 weeks: start just below the belly button. Earlier: closer to the pubic bone. Sweep slowly and patiently.</p>
-                <div class="warning small">If you cannot detect a heartbeat or have concerns, contact your healthcare provider immediately.</div>
+            <div class="group">
+              <label for="sensitivity">Sensitivity</label>
+              <input type="range" id="sensitivity" min="1" max="10" value="7"/>
+              <div class="value">Current: <span id="sensitivityValue">7</span></div>
             </div>
-        </section>
-    </main>
+
+            <div class="group">
+              <label for="filterFreq">Filter Centre Frequency (Hz)</label>
+              <input type="range" id="filterFreq" min="30" max="200" value="80"/>
+              <div class="value">Current: <span id="filterValue">80 Hz</span></div>
+            </div>
+
+            <div class="group">
+              <label for="monitorVol">Monitor Volume (%)</label>
+              <input type="range" id="monitorVol" min="0" max="100" value="30"/>
+              <div class="value">Current: <span id="monitorVolValue">30%</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="area-viz">
+          <div class="pane">
+            <div class="viz" id="visualization">
+              <!-- waveform canvas -->
+              <canvas class="waveform" id="waveform"></canvas>
+              <div class="pulse" id="pulse"></div>
+            </div>
+            <div class="bpm"><span id="bpm">-- BPM</span></div>
+            <div class="hint">Tip: Adjust sensitivity and filter to reduce background noise.</div>
+          </div>
+        </div>
+
+        <div class="area-audio">
+          <div class="audio" id="playbackArea" style="display:none;">
+            <audio id="playbackAudio" controls></audio>
+            <a id="downloadLink" href="#" download="heartbeat.webm">Download recording</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="instructions-tab" class="tab-content">
+      <div class="scrollable">
+        <div class="warning">
+          <h4>Important Medical Disclaimer</h4>
+          <p class="small">
+            This app is for educational purposes only. It should NOT replace professional prenatal care
+            or medical equipment. Always consult healthcare professionals for proper fetal monitoring.
+          </p>
+        </div>
+        <h3>Microphone Setup Guide</h3>
+        <ul>
+          <li>Always <strong>use headphones</strong> for live monitoring to avoid feedback.</li>
+          <li>Keep filter around <strong>60–120 Hz</strong>, sensitivity <strong>6–9</strong>.</li>
+          <li>Place mic directly on skin; move slowly and gently.</li>
+        </ul>
+        <h3>Troubleshooting</h3>
+        <ul>
+          <li>No mic detected? Use HTTPS/localhost and allow microphone permission.</li>
+          <li>Too much hiss? Lower Sensitivity or Monitor Volume.</li>
+          <li>Very high BPM (e.g. 180+) may be noise or double-counting.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="positioning-tab" class="tab-content">
+      <div class="scrollable">
+        <h3>Optimal Microphone Positioning</h3>
+        <p class="small">
+          From ~18 weeks: start just below the belly button. Earlier: closer to the pubic bone.
+          Sweep slowly and patiently.
+        </p>
+        <div class="warning small">
+          If you cannot detect a heartbeat or have concerns, contact your healthcare provider
+          immediately.
+        </div>
+      </div>
+    </section>
+  </main>
 </div>
 
+<!-- Core URL hint (local build fallback) -->
 <script>
-    // Prefer setting window.__CORE_URL__ globally from your server. We still provide robust fallbacks below.
-    window.__CORE_URL__ = window.__CORE_URL__ || "/api/core?token=DEV_TOKEN";
+  window.__CORE_URL__ = window.__CORE_URL__ || "/api/core?token=DEV_TOKEN";
 </script>
+
 <script type="module">
-    // Lightweight tab logic
-    document.querySelectorAll('.tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById(btn.dataset.tab + '-tab').classList.add('active');
-        });
+  // Tabs
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab + '-tab').classList.add('active');
     });
+  });
 
-    // ---- Robust Core Loader ----
-    const statusEl = document.getElementById('status');
-    function setStatus(msg){ if(statusEl){ statusEl.textContent = msg; } }
+  const statusEl = document.getElementById('status');
+  const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg; };
 
-    async function tryDynamicImport(url){
-        try{
-            const mod = await import(url);
-            const init = mod.initBabyBeat || (mod.default && (mod.default.initBabyBeat || mod.default));
-            if(typeof init === 'function') return init;
-        }catch(e){
-            console.warn('[core] dynamic import failed for', url, e);
-        }
-        return null;
+  async function tryDynamicImport(url){
+    if (!url) return null;
+    try{
+      const mod = await import(url);
+      const init = mod.initBabyBeat || (mod.default && (mod.default.initBabyBeat || mod.default));
+      if(typeof init === 'function') return init;
+    }catch(e){
+      console.warn('[core] dynamic import failed for', url, e);
     }
+    return null;
+  }
 
-    function tryGlobal(){
-        if(typeof window.initBabyBeat === 'function') return window.initBabyBeat;
-        if(window.babyBeatCore && typeof window.babyBeatCore.initBabyBeat === 'function') return window.babyBeatCore.initBabyBeat;
-        return null;
+  function tryGlobal(){
+    if(typeof window.initBabyBeat === 'function') return window.initBabyBeat;
+    if(window.babyBeatCore && typeof window.babyBeatCore.initBabyBeat === 'function') {
+      return window.babyBeatCore.initBabyBeat;
     }
+    return null;
+  }
 
-    async function loadCore(){
-        // We only have an ESM build, so we simplify the loader.
-        const candidates = [
-            window.__CORE_URL__, // Tries /api/core?token=DEV_TOKEN first
-            './babybeat-core.js', // Fallback to a local file
-        ];
-        for(const url of candidates){
-            const init = await tryDynamicImport(url);
-            if(init) return { init, source: url };
-        }
-
-        // If all else fails, try the global scope as a last resort.
-        const g = tryGlobal();
-        if(g) return { init: g, source: 'global' };
-
-        throw new Error('Could not load core bundle. Tried API and local fallback.');
+  async function loadCore(){
+    const candidates = [
+      window.__CORE_URL__,
+      './babybeat-core.js',
+    ];
+    for (const url of candidates){
+      const init = await tryDynamicImport(url);
+      if (init) return { init, source: url };
     }
+    const g = tryGlobal();
+    if (g) return { init: g, source: 'global' };
+    throw new Error('Could not load core bundle. Tried API and local fallback.');
+  }
 
-    (async () => {
-        try {
-            setStatus('Loading audio engine…');
-            const { init, source } = await loadCore();
-            setStatus(`Initializing (source: ${source})…`);
-            window.babyBeat = await init({
-                elements: {
-                    micType: '#micType',
-                    start: '#startBtn',
-                    stop: '#stopBtn',
-                    monitor: '#monitorBtn',
-                    playEnhanced: '#playEnhancedBtn',
-                    record: '#recBtn',
-                    status: '#status',
-                    sensitivity: '#sensitivity',
-                    sensitivityValue: '#sensitivityValue',
-                    filterFreq: '#filterFreq',
-                    filterValue: '#filterValue',
-                    monitorVol: '#monitorVol',
-                    monitorVolValue: '#monitorVolValue',
-                    waveform: '#waveform',
-                    pulse: '#pulse',
-                    bpm: '#bpm',
-                    playbackArea: '#playbackArea',
-                    playbackAudio: '#playbackAudio',
-                    downloadLink: '#downloadLink'
-                },
-                async licenseValidator () { return true; }
-            });
-            setStatus('Ready. Select a microphone and press Start Listening.');
-        } catch (e) {
-            console.error('[core] Failed to initialize:', e);
-            setStatus('Failed to load core bundle. Check __CORE_URL__ or script availability.');
+  (async () => {
+    try {
+      setStatus('Loading audio engine…');
+      const { init, source } = await loadCore();
+      setStatus(`Initialising (source: ${source})…`);
+
+      window.babyBeat = await init({
+        elements: {
+          micType: '#micType',
+          start: '#startBtn',
+          stop: '#stopBtn',
+          monitor: '#monitorBtn',
+          playEnhanced: '#playEnhancedBtn',
+          record: '#recBtn',
+          status: '#status',
+          sensitivity: '#sensitivity',
+          sensitivityValue: '#sensitivityValue',
+          filterFreq: '#filterFreq',
+          filterValue: '#filterValue',
+          monitorVol: '#monitorVol',
+          monitorVolValue: '#monitorVolValue',
+          waveform: '#waveform',
+          pulse: '#pulse',
+          bpm: '#bpm',
+          playbackArea: '#playbackArea',
+          playbackAudio: '#playbackAudio',
+          downloadLink: '#downloadLink'
+        },
+        async licenseValidator () {
+          // hook this up later if you do licensing/Stripe session verification
+          return true;
+        },
+        // Optional AI endpoint hook (currently unused)
+        ai: {
+          enabled: false,
+          endpoint: null,
         }
-    })();
+      });
+
+      setStatus('Ready. Select a microphone and press Start Listening.');
+    } catch (e) {
+      console.error('[core] Failed to initialise:', e);
+      setStatus('Failed to load audio engine. Check babybeat-core.js or __CORE_URL__.');
+    }
+  })();
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
