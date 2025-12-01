@@ -1,8 +1,8 @@
 // babybeat-core.js
-// Stabilised heartbeat engine with:
-// - Simple amplitude-based detection (like your original)
-// - Separate fetal & maternal BPM
-// - Strong smoothing, step limiting, and update throttling
+// Simplified BabyBeat core:
+// - Uses the same style of detection as your original one-page HTML
+// - Adds fetal + maternal BPM side by side for debugging
+// - Keeps modular API so you can plug into different UIs
 
 export async function initBabyBeat(opts = {}) {
   const els = mapSelectors(opts.elements || {});
@@ -13,36 +13,22 @@ export async function initBabyBeat(opts = {}) {
 
   // ========= CONSTANTS =========
 
-  const SAMPLE_RATE = 44100;
-
-  // Fetal window (fast)
-  const FETAL_BPM_MIN = 100;
-  const FETAL_BPM_MAX = 190;
-  const FETAL_IDEAL_MIN = 120;
-  const FETAL_IDEAL_MAX = 160;
+  // These match your one-page style
+  const MIN_FETAL_BPM = 100;
+  const MAX_FETAL_BPM = 190;
+  const REFRACTORY_MS = 350;
+  const MIN_INTERVAL_MS = 300;   // for main "fetal-ish" cleaning
+  const MAX_INTERVAL_MS = 750;
 
   // Maternal window (slower)
   const MATERNAL_BPM_MIN = 50;
   const MATERNAL_BPM_MAX = 110;
+  const MATERNAL_MIN_MS = 60000 / MATERNAL_BPM_MAX; // ~545ms
+  const MATERNAL_MAX_MS = 60000 / MATERNAL_BPM_MIN; // 1200ms
 
-  const REFRACTORY_MS = 350;   // minimum spacing between detected peaks
-
-  // Convert to ms ranges
-  const FETAL_MIN_MS = 60000 / FETAL_BPM_MAX; // ~316 ms
-  const FETAL_MAX_MS = 60000 / FETAL_BPM_MIN; // 600 ms
-  const MATERNAL_MIN_MS = 60000 / MATERNAL_BPM_MAX; // ~545 ms
-  const MATERNAL_MAX_MS = 60000 / MATERNAL_BPM_MIN; // 1200 ms
-
-  const FETAL_ALPHA   = 0.15; // smoothing alpha for fetal bpm
-  const MATERNAL_ALPHA= 0.10; // smoothing alpha for maternal bpm
-  const MAX_BPM_STEP  = 6;    // max change per update (BPM)
-
-  // Envelopes / noise (for quality only)
-  const NOISE_FLOOR_ALPHA     = 0.001;
-  const SIGNAL_ENVELOPE_ALPHA = 0.2;
-  const FAST_ENVELOPE_ALPHA   = 0.35;
-
-  const QUALITY_HISTORY_SIZE = 30;
+  // Smoothing like the original
+  const FETAL_ALPHA = 0.25;
+  const MATERNAL_ALPHA = 0.20;
 
   // ========= STATE =========
 
@@ -60,27 +46,22 @@ export async function initBabyBeat(opts = {}) {
   let highpass = null;
   let lowpass = null;
 
-  // Running / monitor / recording
   let running = false;
   let monitorOn = false;
   let recording = false;
 
   // Detection
+  let heartbeatTimes = []; // all beats (timestamps from Date.now())
   let lastBeatTime = 0;
-  let fetalIntervals = [];    // ms
-  let maternalIntervals = []; // ms
-
   let fetalBpm = 0;
   let maternalBpm = 0;
 
+  // Basic envelopes (can be used for quality if needed)
   let noiseFloor = 0.001;
   let signalEnvelope = 0;
   let fastEnvelope = 0;
 
-  let fetalQualityHistory = [];
-  let maternalQualityHistory = [];
-
-  // Display / visualiser
+  // Visualiser
   let waveformHistory = new Float32Array(2048);
   let waveIndex = 0;
   let rafId = 0;
@@ -90,7 +71,6 @@ export async function initBabyBeat(opts = {}) {
   let sensitivity = 7;        // 1–10
   let filterCentreHz = 70;
   let lastAiSendMs = 0;
-  let lastBpmUpdateMs = 0;
 
   // ========= HELPERS =========
 
@@ -122,10 +102,10 @@ export async function initBabyBeat(opts = {}) {
     return prev + alpha * (value - prev);
   }
 
-  function rms(buffer) {
+  function rms(buf) {
     let sum = 0;
-    for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
-    return Math.sqrt(sum / buffer.length);
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    return Math.sqrt(sum / buf.length);
   }
 
   function calculateSNR(signal, noise) {
@@ -191,6 +171,7 @@ export async function initBabyBeat(opts = {}) {
       filterCentreHz = Number(els.filterFreq.value || 70);
       updateUI();
       if (lowpass) {
+        // keep lowpass fairly wide – the real "band" is a combo of hardware + body
         lowpass.frequency.value = Math.max(100, filterCentreHz * 2);
       }
     });
@@ -215,7 +196,7 @@ export async function initBabyBeat(opts = {}) {
       latencyHint: 'interactive'
     });
 
-    const targetRate = audioCtx.sampleRate || SAMPLE_RATE;
+    const targetRate = audioCtx.sampleRate || 44100;
 
     mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -265,7 +246,6 @@ export async function initBabyBeat(opts = {}) {
     processor = audioCtx.createScriptProcessor(bufferSize, 2, 1);
     lowpass.connect(processor);
     processor.connect(audioCtx.destination);
-
     processor.onaudioprocess = onAudioProcess;
   }
 
@@ -283,7 +263,7 @@ export async function initBabyBeat(opts = {}) {
     const n = input.length;
     if (!n || !audioCtx) return;
 
-    // Channel selection
+    // Channel selection (left/right/mix)
     let channelData;
     if (channelMode === 'left' || input.numberOfChannels === 1) {
       channelData = input.getChannelData(0);
@@ -299,21 +279,19 @@ export async function initBabyBeat(opts = {}) {
       channelData = tmp;
     }
 
-    // Sensitivity gain
+    // Sensitivity gain – same spirit as original (sens*3)
     const sensGain = Math.max(0.1, sensitivity * 3);
     const scaledBuffer = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      scaledBuffer[i] = channelData[i] * sensGain;
-    }
+    for (let i = 0; i < n; i++) scaledBuffer[i] = channelData[i] * sensGain;
 
-    // Envelopes (quality only)
+    // Envelopes just for info / potential AI
     const energy = rms(scaledBuffer);
-    noiseFloor     = ema(noiseFloor, energy * 0.3, NOISE_FLOOR_ALPHA);
-    signalEnvelope = ema(signalEnvelope, energy, SIGNAL_ENVELOPE_ALPHA);
-    fastEnvelope   = ema(fastEnvelope, energy, FAST_ENVELOPE_ALPHA);
+    noiseFloor = ema(noiseFloor, energy * 0.3, 0.001);
+    signalEnvelope = ema(signalEnvelope, energy, 0.2);
+    fastEnvelope = ema(fastEnvelope, energy, 0.35);
     const snr = calculateSNR(signalEnvelope, noiseFloor);
 
-    // Amplitude detection
+    // Peak & average amplitude – this is what your original uses
     let peak = 0;
     let sumAmp = 0;
     for (let i = 0; i < n; i++) {
@@ -323,83 +301,70 @@ export async function initBabyBeat(opts = {}) {
     }
     const avgAmp = sumAmp / n;
 
-    const baseThresh = 0.18;
-    const sensOffset = (7 - sensitivity) * 0.01;
-    const peakThresh = baseThresh + sensOffset;
+    // Threshold: basically the same as `peak > 0.18`
+    const threshold = 0.18;
+    const rising = peak > threshold;
 
-    const rising = peak > peakThresh && avgAmp > 0.02; // ignore very tiny blips
-    const nowMs = audioCtx.currentTime * 1000;
-    const sinceLast = nowMs - lastBeatTime;
+    const now = Date.now();
+    const sinceLast = now - lastBeatTime;
 
-    // Waveform history
+    // Save waveform for visualiser
     for (let i = 0; i < n; i += 4) {
       waveformHistory[waveIndex] = scaledBuffer[i];
       waveIndex = (waveIndex + 1) % waveformHistory.length;
     }
 
     if (rising && sinceLast > REFRACTORY_MS) {
-      registerBeat(nowMs, peak, avgAmp, snr);
-      lastBeatTime = nowMs;
+      registerBeat(now, peak, avgAmp, snr);
+      lastBeatTime = now;
     }
 
-    // periodic UI update throttled
-    if (nowMs - lastBpmUpdateMs > 800) {
-      lastBpmUpdateMs = nowMs;
-      updateBpmUI();
-    }
-
-    // AI diagnostics
-    if (aiConfig.enabled && aiConfig.endpoint) {
-      if (nowMs - lastAiSendMs > 1000) {
-        lastAiSendMs = nowMs;
-        maybeSendChunkToAI(scaledBuffer).catch(() => {});
-      }
+    // Optional AI diagnostics
+    if (aiConfig.enabled && aiConfig.endpoint && now - lastAiSendMs > 1000) {
+      lastAiSendMs = now;
+      maybeSendChunkToAI(scaledBuffer).catch(() => {});
     }
   }
 
-  function registerBeat(nowMs, peak, avgAmp, snr) {
-    if (lastBeatTime <= 0) {
-      lastBeatTime = nowMs;
-      pulseBeat();
-      return;
-    }
-
-    const interval = nowMs - lastBeatTime;
-    const rawBpm   = 60000 / interval;
-
-    // Kill insane values early
-    if (rawBpm < 40 || rawBpm > 220) return;
-
-    const inFetalWindow =
-      interval >= FETAL_MIN_MS && interval <= FETAL_MAX_MS;
-    const inMaternalWindow =
-      interval >= MATERNAL_MIN_MS && interval <= MATERNAL_MAX_MS;
-
-    const ampQuality = clamp(peak / 0.7, 0, 1);
-    const snrQuality = clamp(snr / 10, 0, 1);
-    const baseQuality = (ampQuality * 0.6 + snrQuality * 0.4);
-
-    if (inFetalWindow) {
-      fetalIntervals.push(interval);
-      if (fetalIntervals.length > 20) fetalIntervals.shift();
-      fetalQualityHistory.push(baseQuality);
-      if (fetalQualityHistory.length > QUALITY_HISTORY_SIZE) fetalQualityHistory.shift();
-      fetalBpm = computeStableBpmFromIntervals(fetalIntervals, fetalBpm, true);
-    }
-
-    if (inMaternalWindow) {
-      maternalIntervals.push(interval);
-      if (maternalIntervals.length > 20) maternalIntervals.shift();
-      maternalQualityHistory.push(baseQuality);
-      if (maternalQualityHistory.length > QUALITY_HISTORY_SIZE) maternalQualityHistory.shift();
-      maternalBpm = computeStableBpmFromIntervals(maternalIntervals, maternalBpm, false);
-    }
+  function registerBeat(ts, peak, avgAmp, snr) {
+    heartbeatTimes.push(ts);
+    if (heartbeatTimes.length > 20) heartbeatTimes.shift();
 
     pulseBeat();
 
+    if (heartbeatTimes.length < 3) return;
+
+    // Compute intervals for all recent beats
+    const intervals = [];
+    for (let i = 1; i < heartbeatTimes.length; i++) {
+      intervals.push(heartbeatTimes[i] - heartbeatTimes[i - 1]);
+    }
+
+    // Fetal BPM – replicate your original cleaning logic
+    fetalBpm = computeBpmForWindow(
+      intervals,
+      MIN_INTERVAL_MS,
+      MAX_INTERVAL_MS,
+      fetalBpm,
+      FETAL_ALPHA,
+      MAX_FETAL_BPM
+    );
+
+    // Maternal BPM – same idea but with slower window
+    maternalBpm = computeBpmForWindow(
+      intervals,
+      MATERNAL_MIN_MS,
+      MATERNAL_MAX_MS,
+      maternalBpm,
+      MATERNAL_ALPHA,
+      MATERNAL_BPM_MAX
+    );
+
+    // Update UI text
+    updateBpmUI();
     const fetalStr = fetalBpm
       ? `${Math.round(fetalBpm)} BPM` +
-        (fetalBpm >= FETAL_IDEAL_MIN && fetalBpm <= FETAL_IDEAL_MAX ? ' (in typical fetal range)' : ' (candidate)')
+        (fetalBpm >= 120 && fetalBpm <= 160 ? ' (typical fetal range)' : ' (fetal candidate)')
       : '—';
 
     const maternalStr = maternalBpm
@@ -407,65 +372,37 @@ export async function initBabyBeat(opts = {}) {
       : '—';
 
     setStatus(
-      `Fetal: ${fetalStr} • Maternal: ${maternalStr}  —  Educational use only, not a medical device.`
+      `Fetal: ${fetalStr} • Maternal: ${maternalStr} — Educational only, not a medical device.`
     );
   }
 
-  function computeStableBpmFromIntervals(intervals, prevBpm, isFetal) {
-    if (intervals.length < 4) return prevBpm || 0;
+  function computeBpmForWindow(intervals, minMs, maxMs, prevBpm, alpha, capBpm) {
+    const clean = intervals.filter(ms => ms >= minMs && ms <= maxMs);
+    if (clean.length < 2) return prevBpm || 0;
 
-    const maxLookback = isFetal ? 12 : 16;
-    const recent = intervals.slice(-maxLookback);
-
-    // Convert to BPMs
-    const bpmVals = recent
-      .filter(ms => ms > 0)
-      .map(ms => 60000 / ms)
-      .filter(b => b >= 40 && b <= 220);
-
-    if (bpmVals.length < 3) return prevBpm || 0;
-
-    const med = median(bpmVals);
-    if (!med) return prevBpm || 0;
-
-    // Keep only BPMs close to the median to reject weird one-offs
-    const tol = isFetal ? 20 : 15;
-    const inCluster = bpmVals.filter(b => Math.abs(b - med) <= tol);
-    if (!inCluster.length) return prevBpm || 0;
-
-    // Trim 20% extremes from that cluster
-    const sorted = inCluster.slice().sort((a, b) => a - b);
+    const sorted = clean.slice().sort((a, b) => a - b);
     const cut = Math.max(1, Math.floor(sorted.length * 0.2));
     const trimmed = sorted.slice(cut, sorted.length - cut);
     const base = trimmed.length ? trimmed : sorted;
 
-    const avgBpm = base.reduce((a, b) => a + b, 0) / base.length;
+    const avgMs = base.reduce((a, b) => a + b, 0) / base.length;
+    let rawBpm = 60000 / avgMs;
 
-    // Smoothing + step limiting
-    const alpha = isFetal ? FETAL_ALPHA : MATERNAL_ALPHA;
-    let smoothed = prevBpm ? alpha * avgBpm + (1 - alpha) * prevBpm : avgBpm;
+    if (!isFinite(rawBpm) || rawBpm <= 0) return prevBpm || 0;
 
-    if (prevBpm) {
-      const step = smoothed - prevBpm;
-      if (Math.abs(step) > MAX_BPM_STEP) {
-        smoothed = prevBpm + Math.sign(step) * MAX_BPM_STEP;
-      }
-    }
+    let bpm = prevBpm
+      ? alpha * rawBpm + (1 - alpha) * prevBpm
+      : rawBpm;
 
-    // Clamp into physiological windows
-    if (isFetal) {
-      smoothed = clamp(smoothed, FETAL_BPM_MIN, FETAL_BPM_MAX);
-    } else {
-      smoothed = clamp(smoothed, MATERNAL_BPM_MIN, MATERNAL_BPM_MAX);
-    }
-
-    return smoothed;
+    bpm = Math.min(bpm, capBpm);
+    return bpm;
   }
 
   function updateBpmUI() {
     const fetalDisplay = fetalBpm ? Math.round(fetalBpm) : null;
     const maternalDisplay = maternalBpm ? Math.round(maternalBpm) : null;
 
+    // Main BPM: show fetal if available, else maternal
     if (els.bpm) {
       if (fetalDisplay) {
         els.bpm.textContent = `${fetalDisplay} BPM`;
@@ -476,18 +413,11 @@ export async function initBabyBeat(opts = {}) {
       }
     }
 
+    // Optional dedicated maternal span
     if (els.bpmMaternal) {
       els.bpmMaternal.textContent = maternalDisplay
         ? `${maternalDisplay} BPM (likely maternal)`
         : '-- BPM';
-    }
-
-    if (els.bpm && fetalDisplay) {
-      if (fetalDisplay >= FETAL_IDEAL_MIN && fetalDisplay <= FETAL_IDEAL_MAX) {
-        els.bpm.style.color = '#bbf7d0';
-      } else {
-        els.bpm.style.color = '#ffedd5';
-      }
     }
   }
 
@@ -515,6 +445,7 @@ export async function initBabyBeat(opts = {}) {
       const h = canvas.clientHeight || 1;
       ctx.clearRect(0, 0, w, h);
 
+      // Simple grid
       ctx.globalAlpha = 0.18;
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1;
@@ -523,6 +454,7 @@ export async function initBabyBeat(opts = {}) {
       for (let y = 0; y < h; y += 24) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
       ctx.stroke();
 
+      // Waveform
       ctx.globalAlpha = 1;
       const grad = ctx.createLinearGradient(0, 0, w, 0);
       grad.addColorStop(0,   '#f87171');
@@ -609,7 +541,7 @@ export async function initBabyBeat(opts = {}) {
   async function maybeSendChunkToAI(floatBuffer) {
     try {
       if (!aiConfig || !aiConfig.enabled || !aiConfig.endpoint || !audioCtx) return;
-      const sampleRate = audioCtx.sampleRate || SAMPLE_RATE;
+      const sampleRate = audioCtx.sampleRate || 44100;
       const payload = {
         sampleRate,
         chunk: Array.from(floatBuffer.filter((_, i) => i % 4 === 0)).slice(0, 1024),
