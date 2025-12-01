@@ -1,79 +1,615 @@
 // babybeat-core.js
-// Simplified BabyBeat core:
-// - Uses the same style of detection as your original one-page HTML
-// - Adds fetal + maternal BPM side by side for debugging
-// - Keeps modular API so you can plug into different UIs
+// Core BabyBeat engine
+// - Uses simple amplitude-based detection (like your original)
+// - Adds separate fetal + maternal BPM estimates
+// - Handles monitoring, recording, enhanced playback
 
 export async function initBabyBeat(opts = {}) {
   const els = mapSelectors(opts.elements || {});
-  const licenseOk = await (opts.licenseValidator?.() ?? true);
-  if (!licenseOk) throw new Error('License check failed');
-
   const aiConfig = opts.ai || { enabled: false, endpoint: null };
 
-  // ========= CONSTANTS =========
-
-  // These match your one-page style
-  const MIN_FETAL_BPM = 100;
-  const MAX_FETAL_BPM = 190;
-  const REFRACTORY_MS = 350;
-  const MIN_INTERVAL_MS = 300;   // for main "fetal-ish" cleaning
+  // ---- Detection tuning constants (matching original style) ----
+  const MIN_FETAL_BPM   = 100;
+  const MAX_FETAL_BPM   = 190;
+  const REFRACTORY_MS   = 350;
+  const MIN_INTERVAL_MS = 300;
   const MAX_INTERVAL_MS = 750;
+  const SMOOTHING_ALPHA = 0.25;
 
-  // Maternal window (slower)
+  // Maternal range
   const MATERNAL_BPM_MIN = 50;
   const MATERNAL_BPM_MAX = 110;
-  const MATERNAL_MIN_MS = 60000 / MATERNAL_BPM_MAX; // ~545ms
-  const MATERNAL_MAX_MS = 60000 / MATERNAL_BPM_MIN; // 1200ms
+  const MATERNAL_MIN_MS  = 60000 / MATERNAL_BPM_MAX; // ~545ms
+  const MATERNAL_MAX_MS  = 60000 / MATERNAL_BPM_MIN; // 1200ms
+  const MATERNAL_ALPHA   = 0.20;
 
-  // Smoothing like the original
-  const FETAL_ALPHA = 0.25;
-  const MATERNAL_ALPHA = 0.20;
+  class BabyBeatEngine {
+    constructor(els, aiConfig) {
+      this.els = els;
+      this.aiConfig = aiConfig || { enabled: false, endpoint: null };
 
-  // ========= STATE =========
+      this.audioContext = null;
+      this.microphone = null;
+      this.analyser = null;
+      this.dataArray = null;
 
-  let audioCtx = null;
-  let mediaStream = null;
-  let sourceNode = null;
-  let analyser = null;
-  let monitorGain = null;
-  let recDestination = null;
-  let mediaRecorder = null;
-  let recChunks = [];
-  let processor = null;
+      this.gainNode = null;
+      this.bandpassFilter = null;
+      this.compressor = null;
+      this.monitorGain = null;
+      this.mediaDest = null;
+      this.mediaRecorder = null;
+      this.recChunks = [];
 
-  let preGain = null;
-  let highpass = null;
-  let lowpass = null;
+      this.isListening = false;
+      this.isMonitoring = false;
+      this.isRecording = false;
 
-  let running = false;
-  let monitorOn = false;
-  let recording = false;
+      this.heartbeatTimes = [];
+      this.lastBeatTime = 0;
+      this.fetalBpm = 0;
+      this.maternalBpm = 0;
 
-  // Detection
-  let heartbeatTimes = []; // all beats (timestamps from Date.now())
-  let lastBeatTime = 0;
-  let fetalBpm = 0;
-  let maternalBpm = 0;
+      this.recentFloat = new Float32Array(0);
+      this.maxRecentSamples = 0;
+      this._previewGain = null;
+      this._previewSource = null;
 
-  // Basic envelopes (can be used for quality if needed)
-  let noiseFloor = 0.001;
-  let signalEnvelope = 0;
-  let fastEnvelope = 0;
+      this.noiseFloor = 0.001;
+      this.signalEnvelope = 0;
+      this.fastEnvelope = 0;
 
-  // Visualiser
-  let waveformHistory = new Float32Array(2048);
-  let waveIndex = 0;
-  let rafId = 0;
+      this.channelMode = 'mix';
+      this.sensitivity = 7;
+      this.lastAiSendMs = 0;
 
-  // Settings
-  let channelMode = 'mix';
-  let sensitivity = 7;        // 1–10
-  let filterCentreHz = 70;
-  let lastAiSendMs = 0;
+      this.bindUI();
+      this.updateSliderLabels();
+    }
 
-  // ========= HELPERS =========
+    // ---- Utility ----
+    setStatus(msg) {
+      if (this.els.status) this.els.status.textContent = msg;
+    }
 
+    updateSliderLabels() {
+      if (this.els.sensitivity && this.els.sensitivityValue) {
+        this.els.sensitivityValue.textContent = this.els.sensitivity.value;
+      }
+      if (this.els.filterFreq && this.els.filterValue) {
+        this.els.filterValue.textContent = this.els.filterFreq.value + ' Hz';
+      }
+      if (this.els.monitorVol && this.els.monitorVolValue) {
+        this.els.monitorVolValue.textContent = this.els.monitorVol.value + '%';
+      }
+    }
+
+    bindUI() {
+      const e = this.els;
+
+      if (e.micType) {
+        e.micType.addEventListener('change', () => {
+          this.updateChannelMode();
+        });
+        this.updateChannelMode();
+      }
+
+      if (e.sensitivity) {
+        this.sensitivity = parseInt(e.sensitivity.value || '7', 10);
+        e.sensitivity.addEventListener('input', () => {
+          this.sensitivity = parseInt(e.sensitivity.value || '7', 10);
+          this.updateSliderLabels();
+        });
+      }
+
+      if (e.filterFreq) {
+        e.filterFreq.addEventListener('input', () => {
+          this.updateSliderLabels();
+        });
+      }
+
+      if (e.monitorVol) {
+        e.monitorVol.addEventListener('input', () => {
+          this.updateSliderLabels();
+          this.applyMonitorVolume();
+        });
+      }
+
+      if (e.start) e.start.addEventListener('click', () => this.startListening());
+      if (e.stop) e.stop.addEventListener('click', () => this.stopListening());
+      if (e.monitor) e.monitor.addEventListener('click', () => this.toggleMonitor());
+      if (e.playEnhanced) e.playEnhanced.addEventListener('click', () => this.playEnhancedHeartbeat());
+      if (e.record) e.record.addEventListener('click', () => this.toggleRecording());
+
+      this.setButtons();
+      this.updateBpmUI();
+      this.applyMonitorLabel();
+    }
+
+    updateChannelMode() {
+      const typeEl = this.els.micType;
+      if (!typeEl) return;
+      const v = typeEl.value;
+      if (v === 'dji-mic-mini') this.channelMode = 'right';
+      else if (v === 'professional' || v === 'stethoscope') this.channelMode = 'left';
+      else this.channelMode = 'mix';
+    }
+
+    setButtons() {
+      if (!this.els) return;
+      if (this.els.start) this.els.start.disabled = this.isListening;
+      if (this.els.stop) this.els.stop.disabled = !this.isListening;
+      if (this.els.monitor) this.els.monitor.disabled = !this.isListening;
+      if (this.els.playEnhanced) this.els.playEnhanced.disabled = !this.isListening;
+      if (this.els.record) this.els.record.disabled = !this.isListening;
+    }
+
+    applyMonitorLabel() {
+      if (!this.els.monitor) return;
+      this.els.monitor.textContent = this.isMonitoring ? '🎧 Monitor: On' : '🎧 Monitor: Off';
+    }
+
+    applyMonitorVolume() {
+      if (!this.monitorGain || !this.els.monitorVol) return;
+      const vol = parseInt(this.els.monitorVol.value || '0', 10);
+      const linear = clamp(vol / 100, 0, 1) * 0.7;
+      this.monitorGain.gain.value = this.isMonitoring ? linear : 0;
+    }
+
+    setupAudioChain() {
+      const sens = parseInt(this.els.sensitivity?.value || '7', 10);
+      const filt = parseInt(this.els.filterFreq?.value || '60', 10);
+
+      this.gainNode = this.audioContext.createGain();
+      this.gainNode.gain.value = Math.max(0.1, sens * 3);
+
+      this.bandpassFilter = this.audioContext.createBiquadFilter();
+      this.bandpassFilter.type = 'bandpass';
+      this.bandpassFilter.frequency.value = filt;
+      this.bandpassFilter.Q.value = 3;
+
+      this.compressor = this.audioContext.createDynamicsCompressor();
+      this.compressor.threshold.value = -50;
+      this.compressor.knee.value = 40;
+      this.compressor.ratio.value = 12;
+      this.compressor.attack.value = 0.003;
+      this.compressor.release.value = 0.25;
+    }
+
+    setupRecorder(stream) {
+      try {
+        const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
+
+        this.mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
+        this.recChunks = [];
+
+        this.mediaRecorder.ondataavailable = evt => {
+          if (evt.data && evt.data.size) this.recChunks.push(evt.data);
+        };
+
+        this.mediaRecorder.onstop = () => {
+          const blob = new Blob(this.recChunks, { type: this.mediaRecorder.mimeType });
+          const url = URL.createObjectURL(blob);
+          this.recChunks = [];
+          if (this.els.playbackAudio) this.els.playbackAudio.src = url;
+          if (this.els.downloadLink) {
+            this.els.downloadLink.href = url;
+            this.els.downloadLink.download = 'heartbeat.webm';
+          }
+          if (this.els.playbackArea) this.els.playbackArea.style.display = 'block';
+        };
+      } catch (e) {
+        console.warn('Recorder unavailable', e);
+        if (this.els.record) this.els.record.disabled = true;
+      }
+    }
+
+    async startListening() {
+      try {
+        this.setStatus('Requesting microphone access…');
+
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error('getUserMedia not supported. Use HTTPS or localhost.');
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            sampleRate: 48000,
+            channelCount: 2
+          }
+        });
+
+        if (!this.audioContext) {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.audioContext.state === 'suspended') {
+          await this.audioContext.resume();
+        }
+
+        this.microphone = this.audioContext.createMediaStreamSource(stream);
+        this.setupAudioChain();
+
+        this.analyser = this.audioContext.createAnalyser();
+        this.analyser.fftSize = 2048;
+        this.analyser.smoothingTimeConstant = 0.3;
+
+        this.monitorGain = this.audioContext.createGain();
+        this.monitorGain.gain.value = parseInt(this.els.monitorVol?.value || '30', 10) / 100;
+
+        this.microphone.connect(this.gainNode);
+        this.gainNode.connect(this.bandpassFilter);
+        this.bandpassFilter.connect(this.compressor);
+
+        // Monitor (off by default)
+        this.compressor.connect(this.monitorGain);
+        this.monitorGain.connect(this.audioContext.destination);
+        this.monitorGain.disconnect(this.audioContext.destination);
+        this.isMonitoring = false;
+        this.applyMonitorLabel();
+
+        // Analyser + recorder taps
+        this.compressor.connect(this.analyser);
+        this.mediaDest = this.audioContext.createMediaStreamDestination();
+        this.compressor.connect(this.mediaDest);
+        this.setupRecorder(this.mediaDest.stream);
+
+        this.dataArray = new Uint8Array(this.analyser.fftSize);
+        this.maxRecentSamples = Math.floor(this.audioContext.sampleRate * 1.2);
+        this.recentFloat = new Float32Array(0);
+
+        this.isListening = true;
+        this.setButtons();
+        this.setStatus('Listening for heartbeat… (use headphones for Monitor)');
+        this.heartbeatTimes = [];
+        this.lastBeatTime = 0;
+        this.fetalBpm = 0;
+        this.maternalBpm = 0;
+        this.updateBpmUI();
+
+        this.processAudio();
+      } catch (err) {
+        console.error(err);
+        this.setStatus('Error: ' + err.message);
+        this.isListening = false;
+        this.setButtons();
+      }
+    }
+
+    processAudio() {
+      if (!this.isListening || !this.analyser) return;
+
+      // Byte data for simple waveform + peak
+      this.analyser.getByteTimeDomainData(this.dataArray);
+
+      let peak = 0;
+      let sum = 0;
+      for (let i = 0; i < this.dataArray.length; i++) {
+        const amp = Math.abs(this.dataArray[i] - 128) / 128;
+        sum += amp;
+        if (amp > peak) peak = amp;
+      }
+      const avg = sum / this.dataArray.length;
+
+      // Visual: adjust "waveform" div height and glow
+      if (this.els.waveform) {
+        const h = Math.min(avg * 100, 50);
+        this.els.waveform.style.height = h + 'px';
+        this.els.waveform.style.boxShadow = `0 0 ${h}px rgba(255,127,127,.45)`;
+      }
+
+      // Float data for enhanced playback + optional AI
+      const f32 = new Float32Array(this.analyser.fftSize);
+      this.analyser.getFloatTimeDomainData(f32);
+      this.appendRecentFloat(f32);
+
+      // Simple amplitude-based detection, as in original
+      const threshold = 0.18;
+      const rising = peak > threshold;
+      const now = Date.now();
+      const sinceLast = now - this.lastBeatTime;
+
+      // Basic envelopes (for potential AI/quality)
+      const energy = rmsFromFloat(f32);
+      this.noiseFloor = ema(this.noiseFloor, energy * 0.3, 0.001);
+      this.signalEnvelope = ema(this.signalEnvelope, energy, 0.2);
+      this.fastEnvelope = ema(this.fastEnvelope, energy, 0.35);
+      const snr = calcSNR(this.signalEnvelope, this.noiseFloor);
+
+      if (rising && sinceLast > REFRACTORY_MS) {
+        this.registerBeat(now, peak, avg, snr);
+        this.lastBeatTime = now;
+      }
+
+      // Optional AI hook
+      if (this.aiConfig.enabled && this.aiConfig.endpoint && now - this.lastAiSendMs > 1000) {
+        this.lastAiSendMs = now;
+        this.sendChunkToAI(f32).catch(() => {});
+      }
+
+      requestAnimationFrame(() => this.processAudio());
+    }
+
+    appendRecentFloat(f32) {
+      const old = this.recentFloat;
+      const want = Math.min(this.maxRecentSamples, old.length + f32.length);
+      const out = new Float32Array(want);
+      const tail = Math.min(old.length, want - f32.length);
+      if (tail > 0) out.set(old.subarray(old.length - tail), 0);
+      out.set(f32.subarray(f32.length - (want - tail)), tail);
+      this.recentFloat = out;
+    }
+
+    registerBeat(ts, peak, avgAmp, snr) {
+      this.heartbeatTimes.push(ts);
+      if (this.heartbeatTimes.length > 20) this.heartbeatTimes.shift();
+
+      this.pulseAnimation();
+
+      if (this.heartbeatTimes.length < 3) return;
+
+      const intervals = [];
+      for (let i = 1; i < this.heartbeatTimes.length; i++) {
+        intervals.push(this.heartbeatTimes[i] - this.heartbeatTimes[i - 1]);
+      }
+
+      // Fetal BPM (fast window)
+      this.fetalBpm = computeBpmWindow(
+        intervals,
+        MIN_INTERVAL_MS,
+        MAX_INTERVAL_MS,
+        this.fetalBpm,
+        SMOOTHING_ALPHA,
+        MAX_FETAL_BPM
+      );
+
+      // Maternal BPM (slower window)
+      this.maternalBpm = computeBpmWindow(
+        intervals,
+        MATERNAL_MIN_MS,
+        MATERNAL_MAX_MS,
+        this.maternalBpm,
+        MATERNAL_ALPHA,
+        MATERNAL_BPM_MAX
+      );
+
+      this.updateBpmUI();
+
+      const fetalStr = this.fetalBpm
+        ? `${Math.round(this.fetalBpm)} BPM` +
+          (this.fetalBpm >= 120 && this.fetalBpm <= 160 ? ' (typical fetal range)' : ' (fetal candidate)')
+        : '—';
+
+      const maternalStr = this.maternalBpm
+        ? `${Math.round(this.maternalBpm)} BPM (likely maternal)`
+        : '—';
+
+      this.setStatus(
+        `Fetal: ${fetalStr} • Maternal: ${maternalStr} — Educational use only, not a medical device.`
+      );
+    }
+
+    pulseAnimation() {
+      const pulse = this.els.pulse;
+      if (!pulse) return;
+      pulse.style.animation = 'heartbeat .6s ease-in-out';
+      setTimeout(() => {
+        pulse.style.animation = 'none';
+      }, 600);
+    }
+
+    updateBpmUI() {
+      const fetalDisplay = this.fetalBpm ? Math.round(this.fetalBpm) : null;
+      const maternalDisplay = this.maternalBpm ? Math.round(this.maternalBpm) : null;
+
+      if (this.els.bpm) {
+        if (fetalDisplay) {
+          this.els.bpm.textContent = `${fetalDisplay} BPM`;
+        } else if (maternalDisplay) {
+          this.els.bpm.textContent = `${maternalDisplay} BPM (likely maternal)`;
+        } else {
+          this.els.bpm.textContent = '-- BPM';
+        }
+      }
+
+      if (this.els.bpmMaternal) {
+        this.els.bpmMaternal.textContent = maternalDisplay
+          ? `Maternal: ${maternalDisplay} BPM (likely maternal)`
+          : 'Maternal: --';
+      }
+    }
+
+    async playEnhancedHeartbeat() {
+      try {
+        if (!this.audioContext) {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.audioContext.state === 'suspended') await this.audioContext.resume();
+
+        if (this._previewSource) {
+          try { this._previewSource.stop(); } catch {}
+          try { this._previewSource.disconnect(); } catch {}
+          this._previewSource = null;
+        }
+        if (this._previewGain) {
+          try { this._previewGain.disconnect(); } catch {}
+          this._previewGain = null;
+        }
+
+        const sr = this.audioContext.sampleRate;
+        const enough = this.recentFloat && this.recentFloat.length > Math.floor(sr * 0.3);
+        let buffer;
+
+        if (enough) {
+          const takeSec = 0.8;
+          const len = Math.min(Math.floor(sr * takeSec), this.recentFloat.length);
+          const slice = this.recentFloat.subarray(this.recentFloat.length - len);
+          let maxA = 0;
+          for (let i = 0; i < slice.length; i++) {
+            const a = Math.abs(slice[i]);
+            if (a > maxA) maxA = a;
+          }
+          const norm = maxA > 0 ? 0.9 / maxA : 1;
+          const fade = Math.floor(0.02 * sr);
+          const data = new Float32Array(len);
+          for (let i = 0; i < len; i++) {
+            let s = slice[i] * norm;
+            if (i < fade) s *= i / fade;
+            if (i > len - fade) s *= (len - i) / fade;
+            data[i] = s;
+          }
+          buffer = this.audioContext.createBuffer(1, len, sr);
+          buffer.copyToChannel(data, 0, 0);
+        } else {
+          const duration = 0.25;
+          const len = Math.floor(duration * sr);
+          buffer = this.audioContext.createBuffer(1, len, sr);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < len; i++) {
+            const t = i / sr;
+            let a = 0;
+            if (t < 0.08) a = Math.sin(t * 80 * Math.PI) * Math.exp(-t * 20);
+            else if (t > 0.12 && t < 0.20) {
+              const t2 = t - 0.12;
+              a = Math.sin(t2 * 120 * Math.PI) * Math.exp(-t2 * 30) * 0.7;
+            }
+            data[i] = a * 0.9;
+          }
+        }
+
+        const sens = parseInt(this.els.sensitivity?.value || '7', 10);
+        this._previewGain = this.audioContext.createGain();
+        this._previewGain.gain.value = 0.15 + sens * 0.09;
+        this._previewGain.connect(this.audioContext.destination);
+
+        const bpm = (this.fetalBpm && this.fetalBpm >= 80 && this.fetalBpm <= 200)
+          ? this.fetalBpm
+          : 140;
+        const iv = 60 / bpm;
+        const now = this.audioContext.currentTime;
+        const loops = 6;
+        for (let n = 0; n < loops; n++) {
+          const src = this.audioContext.createBufferSource();
+          src.buffer = buffer;
+          src.connect(this._previewGain);
+          src.start(now + n * iv);
+          if (n === loops - 1) this._previewSource = src;
+        }
+      } catch (err) {
+        console.error(err);
+        this.setStatus('Playback error: ' + err.message);
+      }
+    }
+
+    async toggleRecording() {
+      if (!this.mediaRecorder) {
+        if (this.mediaDest) this.setupRecorder(this.mediaDest.stream);
+      }
+      if (!this.mediaRecorder) return;
+
+      if (this.mediaRecorder.state === 'recording') {
+        this.mediaRecorder.stop();
+        this.isRecording = false;
+        if (this.els.record) this.els.record.textContent = '⏺ Start Recording';
+        this.setStatus('Recording stopped');
+      } else {
+        this.recChunks = [];
+        this.mediaRecorder.start(100);
+        this.isRecording = true;
+        if (this.els.record) this.els.record.textContent = '⏹ Stop Recording';
+        this.setStatus('Recording…');
+      }
+    }
+
+    toggleMonitor() {
+      if (!this.monitorGain || !this.audioContext) return;
+      if (this.isMonitoring) {
+        try { this.monitorGain.disconnect(this.audioContext.destination); } catch {}
+        this.isMonitoring = false;
+      } else {
+        try { this.monitorGain.connect(this.audioContext.destination); } catch {}
+        this.isMonitoring = true;
+      }
+      this.applyMonitorLabel();
+      this.applyMonitorVolume();
+    }
+
+    async stopListening() {
+      this.isListening = false;
+
+      const nodes = [
+        this.microphone,
+        this.gainNode,
+        this.bandpassFilter,
+        this.compressor,
+        this.analyser,
+        this.monitorGain
+      ];
+      nodes.forEach(n => { try { n && n.disconnect && n.disconnect(); } catch {} });
+
+      if (this.audioContext) {
+        try { if (this.audioContext.state !== 'closed') await this.audioContext.close(); } catch {}
+        this.audioContext = null;
+      }
+
+      if (this.mediaDest && this.mediaDest.stream) {
+        this.mediaDest.stream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+      }
+
+      if (this.mediaRecorder) {
+        try { if (this.mediaRecorder.state === 'recording') this.mediaRecorder.stop(); } catch {}
+      }
+
+      if (this._previewSource) {
+        try { this._previewSource.stop(); } catch {}
+        try { this._previewSource.disconnect(); } catch {}
+        this._previewSource = null;
+      }
+      if (this._previewGain) {
+        try { this._previewGain.disconnect(); } catch {}
+        this._previewGain = null;
+      }
+
+      this.recentFloat = new Float32Array(0);
+      this.isMonitoring = false;
+      this.applyMonitorLabel();
+
+      this.setButtons();
+      this.updateBpmUI();
+
+      if (this.els.waveform) {
+        this.els.waveform.style.height = '2px';
+        this.els.waveform.style.boxShadow = 'none';
+      }
+      this.setStatus('Stopped listening');
+    }
+
+    async sendChunkToAI(floatBuffer) {
+      try {
+        if (!this.aiConfig || !this.aiConfig.enabled || !this.aiConfig.endpoint || !this.audioContext) return;
+        const sampleRate = this.audioContext.sampleRate || 44100;
+        const payload = {
+          sampleRate,
+          chunk: Array.from(floatBuffer.filter((_, i) => i % 4 === 0)).slice(0, 1024),
+          fetalBpm: this.fetalBpm || null,
+          maternalBpm: this.maternalBpm || null
+        };
+        await fetch(this.aiConfig.endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      } catch (e) {
+        console.warn('[babybeat-ai] send error', e);
+      }
+    }
+  }
+
+  // ---- Small helpers for module ----
   function mapSelectors(map) {
     const out = {};
     for (const k of Object.keys(map)) {
@@ -83,300 +619,27 @@ export async function initBabyBeat(opts = {}) {
     return out;
   }
 
-  function setStatus(msg) {
-    if (els.status) els.status.textContent = msg;
-  }
-
   function clamp(v, lo, hi) {
     return Math.min(hi, Math.max(lo, v));
-  }
-
-  function median(arr) {
-    if (!arr.length) return 0;
-    const a = [...arr].sort((a, b) => a - b);
-    const m = Math.floor(a.length / 2);
-    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
   }
 
   function ema(prev, value, alpha) {
     return prev + alpha * (value - prev);
   }
 
-  function rms(buf) {
+  function rmsFromFloat(buf) {
+    if (!buf || !buf.length) return 0;
     let sum = 0;
     for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
     return Math.sqrt(sum / buf.length);
   }
 
-  function calculateSNR(signal, noise) {
+  function calcSNR(signal, noise) {
     if (noise <= 0) return 0;
     return 20 * Math.log10(signal / noise);
   }
 
-  function setButtonsForState() {
-    if (els.start)       els.start.disabled = running;
-    if (els.stop)        els.stop.disabled = !running;
-    if (els.monitor)     els.monitor.disabled = !running;
-    if (els.playEnhanced) els.playEnhanced.disabled = !running;
-    if (els.record)      els.record.disabled = !running;
-  }
-
-  function updateMonitorLabel() {
-    if (!els.monitor) return;
-    els.monitor.textContent = monitorOn ? 'Monitor: On' : 'Monitor: Off';
-  }
-
-  function pulseBeat() {
-    if (!els.pulse) return;
-    els.pulse.classList.add('active');
-    setTimeout(() => {
-      if (els.pulse) els.pulse.classList.remove('active');
-    }, 180);
-  }
-
-  function updateUI() {
-    if (els.sensitivityValue) els.sensitivityValue.textContent = String(sensitivity);
-    if (els.filterValue) els.filterValue.textContent = `${Math.round(filterCentreHz)} Hz`;
-    if (els.monitorVol && els.monitorVolValue) {
-      const vol = Number(els.monitorVol.value || 0);
-      els.monitorVolValue.textContent = `${vol}%`;
-    }
-  }
-
-  function chooseChannelModeFromMicType() {
-    if (!els.micType) return;
-    const v = els.micType.value;
-    if (v === 'dji-mic-mini') channelMode = 'right';
-    else if (v === 'professional' || v === 'stethoscope') channelMode = 'left';
-    else channelMode = 'mix';
-  }
-
-  // ========= EVENT WIRING =========
-
-  if (els.micType) {
-    els.micType.addEventListener('change', chooseChannelModeFromMicType);
-    chooseChannelModeFromMicType();
-  }
-
-  if (els.sensitivity) {
-    els.sensitivity.addEventListener('input', () => {
-      sensitivity = Number(els.sensitivity.value || 7);
-      updateUI();
-    });
-    sensitivity = Number(els.sensitivity.value || 7);
-  }
-
-  if (els.filterFreq) {
-    els.filterFreq.addEventListener('input', () => {
-      filterCentreHz = Number(els.filterFreq.value || 70);
-      updateUI();
-      if (lowpass) {
-        // keep lowpass fairly wide – the real "band" is a combo of hardware + body
-        lowpass.frequency.value = Math.max(100, filterCentreHz * 2);
-      }
-    });
-    filterCentreHz = Number(els.filterFreq.value || 70);
-  }
-
-  if (els.monitorVol) {
-    els.monitorVol.addEventListener('input', () => {
-      updateUI();
-      applyMonitorVolume();
-    });
-  }
-
-  updateUI();
-
-  // ========= AUDIO GRAPH =========
-
-  async function ensureContextAndStream() {
-    if (audioCtx && mediaStream) return;
-
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)({
-      latencyHint: 'interactive'
-    });
-
-    const targetRate = audioCtx.sampleRate || 44100;
-
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-        channelCount: 2,
-        sampleRate: targetRate,
-        sampleSize: 16
-      }
-    });
-
-    sourceNode = audioCtx.createMediaStreamSource(mediaStream);
-
-    preGain = audioCtx.createGain();
-    preGain.gain.value = 1.0;
-
-    highpass = audioCtx.createBiquadFilter();
-    highpass.type = 'highpass';
-    highpass.frequency.value = 20;
-    highpass.Q.value = 0.7;
-
-    lowpass = audioCtx.createBiquadFilter();
-    lowpass.type = 'lowpass';
-    lowpass.frequency.value = 200;
-    lowpass.Q.value = 0.7;
-
-    monitorGain = audioCtx.createGain();
-    monitorGain.gain.value = 0.0;
-
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 2048;
-    analyser.smoothingTimeConstant = 0.3;
-
-    recDestination = audioCtx.createMediaStreamDestination();
-
-    sourceNode.connect(preGain);
-    preGain.connect(highpass);
-    highpass.connect(lowpass);
-
-    lowpass.connect(analyser);
-    lowpass.connect(recDestination);
-    lowpass.connect(monitorGain);
-    monitorGain.connect(audioCtx.destination);
-
-    const bufferSize = 2048;
-    processor = audioCtx.createScriptProcessor(bufferSize, 2, 1);
-    lowpass.connect(processor);
-    processor.connect(audioCtx.destination);
-    processor.onaudioprocess = onAudioProcess;
-  }
-
-  function applyMonitorVolume() {
-    if (!monitorGain || !els.monitorVol) return;
-    const volPercent = Number(els.monitorVol.value || 0);
-    const linear = clamp(volPercent / 100, 0, 1) * 0.7;
-    monitorGain.gain.value = monitorOn ? linear : 0;
-  }
-
-  // ========= DETECTION =========
-
-  function onAudioProcess(e) {
-    const input = e.inputBuffer;
-    const n = input.length;
-    if (!n || !audioCtx) return;
-
-    // Channel selection (left/right/mix)
-    let channelData;
-    if (channelMode === 'left' || input.numberOfChannels === 1) {
-      channelData = input.getChannelData(0);
-    } else if (channelMode === 'right' && input.numberOfChannels > 1) {
-      channelData = input.getChannelData(1);
-    } else {
-      const tmp = new Float32Array(n);
-      for (let ch = 0; ch < input.numberOfChannels; ch++) {
-        const d = input.getChannelData(ch);
-        for (let i = 0; i < n; i++) tmp[i] += d[i];
-      }
-      for (let i = 0; i < n; i++) tmp[i] /= input.numberOfChannels;
-      channelData = tmp;
-    }
-
-    // Sensitivity gain – same spirit as original (sens*3)
-    const sensGain = Math.max(0.1, sensitivity * 3);
-    const scaledBuffer = new Float32Array(n);
-    for (let i = 0; i < n; i++) scaledBuffer[i] = channelData[i] * sensGain;
-
-    // Envelopes just for info / potential AI
-    const energy = rms(scaledBuffer);
-    noiseFloor = ema(noiseFloor, energy * 0.3, 0.001);
-    signalEnvelope = ema(signalEnvelope, energy, 0.2);
-    fastEnvelope = ema(fastEnvelope, energy, 0.35);
-    const snr = calculateSNR(signalEnvelope, noiseFloor);
-
-    // Peak & average amplitude – this is what your original uses
-    let peak = 0;
-    let sumAmp = 0;
-    for (let i = 0; i < n; i++) {
-      const a = Math.abs(scaledBuffer[i]);
-      sumAmp += a;
-      if (a > peak) peak = a;
-    }
-    const avgAmp = sumAmp / n;
-
-    // Threshold: basically the same as `peak > 0.18`
-    const threshold = 0.18;
-    const rising = peak > threshold;
-
-    const now = Date.now();
-    const sinceLast = now - lastBeatTime;
-
-    // Save waveform for visualiser
-    for (let i = 0; i < n; i += 4) {
-      waveformHistory[waveIndex] = scaledBuffer[i];
-      waveIndex = (waveIndex + 1) % waveformHistory.length;
-    }
-
-    if (rising && sinceLast > REFRACTORY_MS) {
-      registerBeat(now, peak, avgAmp, snr);
-      lastBeatTime = now;
-    }
-
-    // Optional AI diagnostics
-    if (aiConfig.enabled && aiConfig.endpoint && now - lastAiSendMs > 1000) {
-      lastAiSendMs = now;
-      maybeSendChunkToAI(scaledBuffer).catch(() => {});
-    }
-  }
-
-  function registerBeat(ts, peak, avgAmp, snr) {
-    heartbeatTimes.push(ts);
-    if (heartbeatTimes.length > 20) heartbeatTimes.shift();
-
-    pulseBeat();
-
-    if (heartbeatTimes.length < 3) return;
-
-    // Compute intervals for all recent beats
-    const intervals = [];
-    for (let i = 1; i < heartbeatTimes.length; i++) {
-      intervals.push(heartbeatTimes[i] - heartbeatTimes[i - 1]);
-    }
-
-    // Fetal BPM – replicate your original cleaning logic
-    fetalBpm = computeBpmForWindow(
-      intervals,
-      MIN_INTERVAL_MS,
-      MAX_INTERVAL_MS,
-      fetalBpm,
-      FETAL_ALPHA,
-      MAX_FETAL_BPM
-    );
-
-    // Maternal BPM – same idea but with slower window
-    maternalBpm = computeBpmForWindow(
-      intervals,
-      MATERNAL_MIN_MS,
-      MATERNAL_MAX_MS,
-      maternalBpm,
-      MATERNAL_ALPHA,
-      MATERNAL_BPM_MAX
-    );
-
-    // Update UI text
-    updateBpmUI();
-    const fetalStr = fetalBpm
-      ? `${Math.round(fetalBpm)} BPM` +
-        (fetalBpm >= 120 && fetalBpm <= 160 ? ' (typical fetal range)' : ' (fetal candidate)')
-      : '—';
-
-    const maternalStr = maternalBpm
-      ? `${Math.round(maternalBpm)} BPM (likely maternal)`
-      : '—';
-
-    setStatus(
-      `Fetal: ${fetalStr} • Maternal: ${maternalStr} — Educational only, not a medical device.`
-    );
-  }
-
-  function computeBpmForWindow(intervals, minMs, maxMs, prevBpm, alpha, capBpm) {
+  function computeBpmWindow(intervals, minMs, maxMs, prevBpm, alpha, capBpm) {
     const clean = intervals.filter(ms => ms >= minMs && ms <= maxMs);
     if (clean.length < 2) return prevBpm || 0;
 
@@ -387,257 +650,39 @@ export async function initBabyBeat(opts = {}) {
 
     const avgMs = base.reduce((a, b) => a + b, 0) / base.length;
     let rawBpm = 60000 / avgMs;
-
     if (!isFinite(rawBpm) || rawBpm <= 0) return prevBpm || 0;
 
     let bpm = prevBpm
       ? alpha * rawBpm + (1 - alpha) * prevBpm
       : rawBpm;
 
-    bpm = Math.min(bpm, capBpm);
+    if (capBpm) bpm = Math.min(bpm, capBpm);
     return bpm;
   }
 
-  function updateBpmUI() {
-    const fetalDisplay = fetalBpm ? Math.round(fetalBpm) : null;
-    const maternalDisplay = maternalBpm ? Math.round(maternalBpm) : null;
-
-    // Main BPM: show fetal if available, else maternal
-    if (els.bpm) {
-      if (fetalDisplay) {
-        els.bpm.textContent = `${fetalDisplay} BPM`;
-      } else if (maternalDisplay) {
-        els.bpm.textContent = `${maternalDisplay} BPM (likely maternal)`;
-      } else {
-        els.bpm.textContent = '-- BPM';
-      }
-    }
-
-    // Optional dedicated maternal span
-    if (els.bpmMaternal) {
-      els.bpmMaternal.textContent = maternalDisplay
-        ? `${maternalDisplay} BPM (likely maternal)`
-        : '-- BPM';
-    }
-  }
-
-  // ========= VISUALISER =========
-
-  function startVisualizer() {
-    if (!els.waveform) return;
-    const canvas = els.waveform;
-    const ctx = canvas.getContext('2d');
-
-    function resize() {
-      const dpr = window.devicePixelRatio || 1;
-      const w = canvas.clientWidth || 1;
-      const h = canvas.clientHeight || 1;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    resize();
-    window.addEventListener('resize', resize);
-
-    function draw() {
-      const w = canvas.clientWidth || 1;
-      const h = canvas.clientHeight || 1;
-      ctx.clearRect(0, 0, w, h);
-
-      // Simple grid
-      ctx.globalAlpha = 0.18;
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = 0; x < w; x += 24) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
-      for (let y = 0; y < h; y += 24) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
-      ctx.stroke();
-
-      // Waveform
-      ctx.globalAlpha = 1;
-      const grad = ctx.createLinearGradient(0, 0, w, 0);
-      grad.addColorStop(0,   '#f87171');
-      grad.addColorStop(0.5, '#fb923c');
-      grad.addColorStop(1,   '#caff00');
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-
-      const len = waveformHistory.length;
-      const mid = h * 0.6;
-      const scale = h * 0.8;
-
-      for (let i = 0; i < len; i++) {
-        const idx = (waveIndex + i) % len;
-        const v = waveformHistory[idx] || 0;
-        const x = (i / (len - 1)) * w;
-        const y = mid - v * scale;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      rafId = requestAnimationFrame(draw);
-    }
-
-    if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(draw);
-  }
-
-  // ========= RECORDING =========
-
-  function setupRecorder() {
-    if (!recDestination) return;
-    try {
-      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
-
-      mediaRecorder = new MediaRecorder(recDestination.stream, { mimeType: mime });
-      recChunks = [];
-
-      mediaRecorder.ondataavailable = (evt) => {
-        if (evt.data && evt.data.size > 0) recChunks.push(evt.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(recChunks, { type: mediaRecorder.mimeType });
-        const url = URL.createObjectURL(blob);
-        recChunks = [];
-        if (els.playbackAudio) els.playbackAudio.src = url;
-        if (els.downloadLink) {
-          els.downloadLink.href = url;
-          els.downloadLink.download = 'babybeat-heartbeat.webm';
-        }
-        if (els.playbackArea) els.playbackArea.style.display = 'flex';
-      };
-    } catch (e) {
-      console.warn('Recorder unavailable', e);
-      if (els.record) els.record.disabled = true;
-    }
-  }
-
-  async function startRecording() {
-    if (!mediaRecorder) setupRecorder();
-    if (!mediaRecorder || mediaRecorder.state === 'recording') return;
-    recChunks = [];
-    mediaRecorder.start(100);
-    recording = true;
-    if (els.record) els.record.textContent = 'Stop Recording';
-    setStatus('Recording heartbeat clip…');
-  }
-
-  async function stopRecording() {
-    if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
-    mediaRecorder.stop();
-    recording = false;
-    if (els.record) els.record.textContent = 'Start Recording';
-    setStatus('Recording stopped. You can play or download the clip.');
-  }
-
-  // ========= AI HOOK =========
-
-  async function maybeSendChunkToAI(floatBuffer) {
-    try {
-      if (!aiConfig || !aiConfig.enabled || !aiConfig.endpoint || !audioCtx) return;
-      const sampleRate = audioCtx.sampleRate || 44100;
-      const payload = {
-        sampleRate,
-        chunk: Array.from(floatBuffer.filter((_, i) => i % 4 === 0)).slice(0, 1024),
-        fetalBpm: fetalBpm || null,
-        maternalBpm: maternalBpm || null
-      };
-      await fetch(aiConfig.endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(() => {});
-    } catch (e) {
-      console.warn('[babybeat-ai] send error', e);
-    }
-  }
-
-  // ========= PUBLIC API =========
-
-  async function start() {
-    if (running) return;
-    await ensureContextAndStream();
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-
-    running = true;
-    setButtonsForState();
-    updateMonitorLabel();
-    applyMonitorVolume();
-    startVisualizer();
-    setStatus('Listening… move the mic slowly and adjust sensitivity/filter.');
-  }
-
-  async function stop() {
-    running = false;
-    setButtonsForState();
-    updateMonitorLabel();
-    applyMonitorVolume();
-    if (audioCtx && audioCtx.state !== 'closed') {
-      await audioCtx.suspend();
-    }
-    setStatus('Stopped. Press Start Listening to resume.');
-  }
-
-  function toggleMonitor() {
-    monitorOn = !monitorOn;
-    updateMonitorLabel();
-    applyMonitorVolume();
-  }
-
-  function setFilterHz(hz) {
-    filterCentreHz = clamp(hz, 30, 200);
-    if (els.filterFreq) els.filterFreq.value = String(Math.round(filterCentreHz));
-    if (lowpass) lowpass.frequency.value = Math.max(100, filterCentreHz * 2);
-    updateUI();
-  }
-
-  function setSensitivityVal(val) {
-    sensitivity = clamp(val, 1, 10);
-    if (els.sensitivity) els.sensitivity.value = String(sensitivity);
-    updateUI();
-  }
-
-  function setMonitorVol(percent) {
-    if (els.monitorVol) els.monitorVol.value = String(clamp(percent, 0, 100));
-    updateUI();
-    applyMonitorVolume();
-  }
-
-  // Bind buttons
-  if (els.start)       els.start.addEventListener('click', () => start().catch(console.error));
-  if (els.stop)        els.stop.addEventListener('click', () => stop().catch(console.error));
-  if (els.monitor)     els.monitor.addEventListener('click', () => toggleMonitor());
-  if (els.playEnhanced) {
-    els.playEnhanced.addEventListener('click', () => {
-      setStatus('Enhanced listening (UI only) – core already band-limits and amplifies signal.');
-      setTimeout(() => setStatus('Listening…'), 2500);
-    });
-  }
-  if (els.record) {
-    els.record.addEventListener('click', () => {
-      if (!recording) startRecording().catch(console.error);
-      else stopRecording().catch(console.error);
-    });
-  }
-
-  setButtonsForState();
-  updateMonitorLabel();
-  updateBpmUI();
+  // Instantiate engine & expose minimal API
+  const engine = new BabyBeatEngine(els, aiConfig);
 
   return {
-    start,
-    stop,
-    toggleMonitor,
-    startRecording,
-    stopRecording,
-    setFilterHz,
-    setSensitivity: setSensitivityVal,
-    setMonitorVol
+    start: () => engine.startListening(),
+    stop: () => engine.stopListening(),
+    toggleMonitor: () => engine.toggleMonitor(),
+    startRecording: () => engine.toggleRecording(), // starts if stopped
+    stopRecording: () => engine.toggleRecording(),   // stops if recording
+    setSensitivity: (v) => {
+      if (engine.els.sensitivity) engine.els.sensitivity.value = String(v);
+      engine.sensitivity = v;
+      engine.updateSliderLabels();
+    },
+    setFilterHz: (hz) => {
+      if (engine.els.filterFreq) engine.els.filterFreq.value = String(hz);
+      engine.updateSliderLabels();
+    },
+    setMonitorVol: (p) => {
+      if (engine.els.monitorVol) engine.els.monitorVol.value = String(p);
+      engine.updateSliderLabels();
+      engine.applyMonitorVolume();
+    }
   };
 }
+
