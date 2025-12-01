@@ -6,12 +6,6 @@
   <title>BabyBeat — Hear the Rhythm</title>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet"/>
   <style>
-    /* ===============================
-       BabyBeat — Full Page CSS
-       (continuous gradient via fixed bg layer)
-       Font: Sora (loaded in <head>)
-       =============================== */
-
     :root{
       --bg: linear-gradient(135deg, #4d6cf4 0%, #fa428f 100%);
       --glass: rgba(255,255,255,.10);
@@ -41,26 +35,22 @@
       will-change: transform;
     }
 
-    /* Sticky Circular CTA */
     .sticky-cta {
       position: fixed;
       right: 24px;
       top: 50%;
       transform: translateY(-50%);
       z-index: 9999;
-
       width: 200px;
       height: 200px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-
       font-size: 1.6rem;
       font-weight: 800;
       color: #fff;
       text-decoration: none;
-
       background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
       box-shadow: 0 12px 24px rgba(0,0,0,.25);
       transition: transform .2s ease, box-shadow .2s ease;
@@ -92,9 +82,6 @@
       box-shadow: var(--shadow);
     }
 
-    /* ===============================
-       HERO
-       =============================== */
     header.hero{
       border-radius: var(--radius-lg);
       padding: clamp(18px, 4vw, 32px);
@@ -210,6 +197,24 @@
     .links a{ color:#fff; text-decoration:none; opacity:.9; }
     .links a:hover{ opacity:1; text-decoration:underline; }
 
+    .admin-btn{
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      z-index: 9999;
+      font: 700 12px/1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.35);
+      background: rgba(0,0,0,.35);
+      color: #fff;
+      backdrop-filter: blur(8px);
+      cursor: pointer;
+      opacity: .85;
+      transition: transform .15s ease, opacity .15s ease;
+    }
+    .admin-btn:hover{ opacity: 1; transform: translateY(-1px); }
+
     .sr-only{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); border:0; }
   </style>
 </head>
@@ -217,7 +222,6 @@
 <div class="page-bg" aria-hidden="true"></div>
 
 <div class="wrap">
-  <!-- HERO -->
   <header class="hero glass" role="banner" aria-label="BabyBeat hero">
     <div class="brand">
       <div class="mark" aria-hidden="true">‪‪❤︎‬</div>
@@ -228,7 +232,7 @@
       <div class="hero-copy">
         <span class="badge" aria-label="Educational tool">Learn & Bond • Not a medical device</span>
         <h1>Hear the rhythm. See the heartbeat. Save the moment.</h1>
-        <p>BabyBeat lets you monitor and visualize fetal heart sounds with your device’s microphone. Beautiful visuals, helpful filters, and recordings you can keep.</p>
+        <p>BabyBeat uses advanced filtering and AI-style signal analysis to help you visualise fetal heart sounds with your device’s microphone. Beautiful visuals, smart smoothing and recordings you can keep.</p>
 
         <div class="cta-row">
           <button id="checkout-button" class="cta" aria-label="Get access now">
@@ -246,7 +250,6 @@
         </div>
       </div>
 
-      <!-- Demo visualizer -->
       <div class="visz-card glass" aria-live="polite">
         <canvas id="demoCanvas" aria-label="Sample heartbeat visualizer"></canvas>
         <div class="bpm">
@@ -260,25 +263,24 @@
     </div>
   </header>
 
-  <!-- FEATURES -->
   <section class="section-card glass">
     <h2 class="section-title">Why parents love BabyBeat</h2>
-    <p class="muted">Modern audio filters, beautiful visualization, and simple controls — all in your browser.</p>
+    <p class="muted">Modern audio filters, smoothing, heartbeat detection and simple controls — all in your browser.</p>
     <div class="features" role="list">
       <article class="feat" role="listitem">
         <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 7 4-14 3 7h4"/></svg></div>
         <h3>Real-time Visualizer</h3>
-        <p>Watch waveforms pulse in sync with the heartbeat for an engaging bonding moment.</p>
+        <p>Watch waveforms pulse in sync with the detected heartbeat for an engaging bonding moment.</p>
       </article>
       <article class="feat" role="listitem">
         <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg></div>
         <h3>Smart Filters</h3>
-        <p>Adjust sensitivity and frequency filters to reduce noise and enhance clarity.</p>
+        <p>Band-pass filters in the fetal heart range help reduce rumble and high-frequency noise.</p>
       </article>
       <article class="feat" role="listitem">
         <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5zM9 9h6v6H9z"/></svg></div>
         <h3>Record & Save</h3>
-        <p>Capture short clips to relive and share the heartbeat moments later.</p>
+        <p>Capture short clips to relive and share your heartbeat moments later.</p>
       </article>
       <article class="feat" role="listitem">
         <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg></div>
@@ -288,7 +290,7 @@
       <article class="feat" role="listitem">
         <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg></div>
         <h3>Headphone-Safe Monitor</h3>
-        <p>Live monitor designed for headphones to prevent feedback.</p>
+        <p>Live monitor path is capped to safe levels to reduce feedback risk.</p>
       </article>
       <article class="feat" role="listitem">
         <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L6.5 20l2-7L3 9h7z"/></svg></div>
@@ -298,17 +300,15 @@
     </div>
   </section>
 
-  <!-- HOW IT WORKS -->
   <section class="section-card glass">
     <h2 class="section-title">How it works</h2>
     <div class="steps">
-      <div class="step"><div class="num">1</div><h3>Choose Microphone</h3><p class="muted">Use your phone’s mic or an external mic. Headphones recommended.</p></div>
+      <div class="step"><div class="num">1</div><h3>Choose Microphone</h3><p class="muted">Use your phone’s mic or an external mic like the DJI Mic. Headphones recommended.</p></div>
       <div class="step"><div class="num">2</div><h3>Find the Beat</h3><p class="muted">Move slowly, keep contact on skin, tweak sensitivity & filter.</p></div>
       <div class="step"><div class="num">3</div><h3>See & Save</h3><p class="muted">Watch the visuals dance and save a short clip to cherish.</p></div>
     </div>
   </section>
 
-  <!-- FAQ -->
   <section class="section-card glass" aria-label="Frequently Asked Questions">
     <h2 class="section-title">FAQ</h2>
     <div class="faq">
@@ -327,76 +327,42 @@
     </div>
   </section>
 
-  <!-- FOOTER -->
   <footer class="glass">
     <div class="tiny">© <span id="year"></span> BabyBeat — Educational only, not a medical device.</div>
     <div class="links">
-      <a href="https://babybeat.vercel.app" target="_blank" rel="noopener">Open App</a>
+      <a href="/main.html" rel="noopener">Open App</a>
       <a href="#" aria-disabled="true" tabindex="-1">Privacy</a>
       <a href="#" aria-disabled="true" tabindex="-1">Terms</a>
     </div>
   </footer>
 </div>
+
 <button id="admin-btn" class="admin-btn" type="button" aria-label="Get admin access">Admin</button>
 
+<!-- Admin button → detector -->
 <script>
   (function () {
     const btn = document.getElementById('admin-btn');
     if (!btn) return;
-
-    btn.addEventListener('click', async () => {
-      const password = prompt('Enter admin password:');
-      if (password == null) return; // cancelled
-      try {
-        const res = await fetch('/api/admin-login', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ password })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return alert(data.error || 'Login failed');
-
-        // ✅ go to the admin/app page
-        window.location.assign('/main.html');
-      } catch (e) {
-        alert('Network error logging in.');
-      }
+    btn.addEventListener('click', () => {
+      window.location.assign('/main.html');
     });
   })();
 </script>
 
-
-<style>
-  .admin-btn{
-    position: fixed;
-    right: 12px;
-    bottom: 12px;
-    z-index: 9999;
-    font: 700 12px/1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,.35);
-    background: rgba(0,0,0,.35);
-    color: #fff;
-    backdrop-filter: blur(8px);
-    cursor: pointer;
-    opacity: .85;
-    transition: transform .15s ease, opacity .15s ease;
-  }
-  .admin-btn:hover{ opacity: 1; transform: translateY(-1px); }
-</style>
-
-<!-- Demo scripts -->
+<!-- Footer year -->
 <script>
-  // Footer year
   window.addEventListener('DOMContentLoaded', () => {
     const y = document.getElementById('year');
     if (y) y.textContent = new Date().getFullYear();
   });
+</script>
 
-  // DEMO VISUALIZER (cosmetic only)
+<!-- Demo visualizer -->
+<script>
   (function(){
     const c = document.getElementById('demoCanvas');
+    if (!c) return;
     const ctx = c.getContext('2d');
     function resize(){
       const dpr = window.devicePixelRatio || 1;
@@ -412,7 +378,7 @@
       t += 0.016;
       const wobble = 3 * Math.sin(t*1.4);
       const show = Math.round(bpm + wobble);
-      bpmEl.textContent = show + ' BPM';
+      if (bpmEl) bpmEl.textContent = show + ' BPM';
 
       ctx.clearRect(0,0,c.clientWidth,c.clientHeight);
       ctx.globalAlpha = .2;
@@ -446,47 +412,7 @@
 
 <!-- Stripe.js -->
 <script src="https://js.stripe.com/v3/"></script>
-
-<!-- Checkout glue -->
-<script>
-  window.addEventListener('DOMContentLoaded', () => {
-    async function getStripe() {
-      const r = await fetch('/api/config');
-      const text = await r.text();
-      let data;
-      try { data = JSON.parse(text); }
-      catch (e) { console.error('CONFIG returned HTML:', text); throw new Error('Config route not returning JSON'); }
-      if (!r.ok) throw new Error(data.error || 'Failed to load Stripe config');
-      if (!data.publishableKey) throw new Error('Missing STRIPE_PUBLISHABLE_KEY');
-      return Stripe(data.publishableKey);
-    }
-
-    async function startCheckout(e) {
-      if (e) e.preventDefault();
-      // If welcome.js provides a custom flow, prefer it
-      if (window.startCheckout) return window.startCheckout();
-
-      try {
-        const stripe = await getStripe();
-        const res = await fetch('/api/create-checkout-session', { method: 'POST' });
-        const bodyText = await res.text();
-        let body;
-        try { body = JSON.parse(bodyText); }
-        catch (e) { console.error('CHECKOUT returned HTML:', bodyText); alert('Server error creating session'); return; }
-        if (!res.ok) { console.error('Checkout error:', body); alert(body.error || 'Server error creating session'); return; }
-        await stripe.redirectToCheckout({ sessionId: body.id });
-      } catch (err) {
-        console.error(err);
-        alert(err.message || 'Checkout config error');
-      }
-    }
-
-    const triggers = document.querySelectorAll('#checkout-button, [data-checkout]');
-    triggers.forEach(el => el.addEventListener('click', startCheckout));
-  });
-</script>
-
-<!-- Optional: your existing welcome.js can override checkout flow -->
+<!-- Checkout glue (overridden by welcome.js) -->
 <script src="welcome.js" defer></script>
 
 <!-- Sticky CTA triggers checkout -->
@@ -494,4 +420,3 @@
 
 </body>
 </html>
-
