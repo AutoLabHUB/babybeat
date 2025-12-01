@@ -1,51 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Main Page</title>
-    <script>
-        // On main.html, add this script to handle access token
-        window.addEventListener('DOMContentLoaded', function () {
-            // Check for token in localStorage
-            const token = localStorage.getItem('access_token');
-            const urlParams = new URLSearchParams(window.location.search);
-            const sessionId = urlParams.get('session_id');
+// main.js
+// Wires the UI to the BabyBeat core and handles tabs.
 
-            if (token) {
-                // Token exists, allow access
-                return;
-            } else if (sessionId) {
-                // No token, but session_id present (just paid)
-                fetch('/api/verify-session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: sessionId })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.token) {
-                        localStorage.setItem('access_token', data.token);
-                        // Remove session_id from URL
-                        window.location.replace('/main.html');
-                    } else {
-                        alert('Payment verification failed.');
-                        window.location.replace('/index.html');
-                    }
-                })
-                .catch(() => {
-                    alert('Payment verification error.');
-                    window.location.replace('/index.html');
-                });
-            } else {
-                // No token and no session_id, redirect to welcome
-                window.location.replace('/index.html');
-            }
-        });
-    </script>
-</head>
-<body>
-    <h1>Welcome to the Main Page</h1>
-    <!-- Main content of the page -->
-</body>
-</html>
+import { initBabyBeat } from './babybeat-core.js';
+
+function setupTabs() {
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+  const panels = Array.from(document.querySelectorAll('.tabpanel'));
+
+  function setTab(idx) {
+    tabs.forEach((t, i) => t.setAttribute('aria-selected', i === idx ? 'true' : 'false'));
+    panels.forEach((p, i) => p.classList.toggle('active', i === idx));
+  }
+
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => setTab(i));
+    t.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight') setTab((i + 1) % tabs.length);
+      if (e.key === 'ArrowLeft') setTab((i - 1 + tabs.length) % tabs.length);
+    });
+  });
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  setupTabs();
+
+  const engine = await initBabyBeat({
+    elements: {
+      start: '#startBtn',
+      stop: '#stopBtn',
+      monitor: '#monitorBtn',
+      playEnhanced: '#playEnhancedBtn',
+      record: '#recBtn',
+
+      micType: '#micType',
+
+      sensitivity: '#sensitivity',
+      sensitivityValue: '#sensitivityValue',
+      filterFreq: '#filterFreq',
+      filterValue: '#filterValue',
+      monitorVol: '#monitorVol',
+      monitorVolValue: '#monitorVolValue',
+
+      status: '#status',
+      waveform: '#waveform',
+      pulse: '#pulse',
+
+      bpm: '#bpm-main',
+      bpmMaternal: '#bpm-maternal',
+
+      playbackArea: '#playbackArea',
+      playbackAudio: '#playbackAudio',
+      downloadLink: '#downloadLink'
+    },
+    ai: {
+      enabled: false,
+      endpoint: null
+    }
+  });
+
+  // Optional: make available in devtools
+  window.babyBeatEngine = engine;
+});
+
