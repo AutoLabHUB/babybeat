@@ -295,16 +295,24 @@
 <body>
 
 <script>
-  // Simple admin guard – keep as-is, or remove if you don’t need login
   (async () => {
     try {
       const r = await fetch('/api/verify-admin', { credentials: 'include' });
-      if (!r.ok) throw new Error('not authed');
-    } catch {
-      window.location.replace('/');
+      if (!r.ok) {
+        console.warn('Not authed (verify-admin failed), continuing in DEV mode');
+        // Optional: show a small banner instead of redirecting
+        const banner = document.createElement('div');
+        banner.textContent = 'DEV MODE: verify-admin failed, but access is allowed.';
+        banner.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#f97316;color:white;padding:6px 12px;border-radius:999px;font-size:12px;z-index:9999;';
+        document.body.appendChild(banner);
+      }
+    } catch (e) {
+      console.warn('verify-admin request errored, continuing in DEV mode', e);
+      // Same optional banner if you like
     }
   })();
 </script>
+
 
 <script>
   // Scroll status into view when starting
